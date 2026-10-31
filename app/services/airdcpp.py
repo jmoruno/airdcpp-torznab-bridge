@@ -577,7 +577,7 @@ class AirDCClient:
             )
             response.raise_for_status()
             download_id = str(response.json()["id"])
-            deadline = time.monotonic() + self.settings.search_timeout
+            deadline = time.monotonic() + max(self.settings.search_timeout, float(__import__('os').environ.get('DOWNLOAD_SEARCH_TIMEOUT', '30')))
             while time.monotonic() < deadline:
                 current = await self.http.get(
                     f"{self.settings.airdcpp_url}/api/v1/filelists/directory_downloads/{download_id}",
@@ -609,7 +609,7 @@ class AirDCClient:
                     json={"query": ({"pattern": release.tth, "file_type": "tth"} if release.tth else {"pattern": release.source_name or release.name}), "hub_urls": []},
                     headers=self.headers,
                 )
-                deadline = time.monotonic() + self.settings.search_timeout
+                deadline = time.monotonic() + max(self.settings.search_timeout, float(__import__('os').environ.get('DOWNLOAD_SEARCH_TIMEOUT', '30')))
                 selected = None
                 while time.monotonic() < deadline and selected is None:
                     await asyncio.sleep(self.settings.search_poll_interval)
