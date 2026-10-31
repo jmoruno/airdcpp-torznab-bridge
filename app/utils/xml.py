@@ -1,3 +1,4 @@
+import re
 import email.utils
 import time
 import urllib.parse
@@ -26,6 +27,43 @@ def caps_xml() -> str:
     tv = ET.SubElement(categories, "category", id="5000", name="TV")
     ET.SubElement(tv, "subcat", id="5040", name="TV/HD")
     return _serialize(root)
+
+
+_RES_WORD = re.compile(r"(?<![a-z0-9])(2160p|4k|uhd|1080p|1080i|720p|576p|480p)(?![a-z])", re.I)
+_RES_SIZE = re.compile(r"(?<![0-9])(\d{3,4})\s?x\s?(\d{3,4})(?![0-9])", re.I)
+
+
+def _resolution_in(text: str) -> str | None:
+    match = _RES_WORD.search(text)
+    if match:
+        word = match.group(1).lower()
+        return {"4k": "2160p", "uhd": "2160p", "1080i": "1080p"}.get(word, word)
+    match = _RES_SIZE.search(text)
+    if match:
+        height = int(match.group(2))
+        if height >= 2000:
+            return "2160p"
+        if height >= 1000:
+            return "1080p"
+        if height >= 700:
+            return "720p"
+        if height >= 560:
+            return "576p"
+        if height >= 400:
+            return "480p"
+    return None
+
+
+def resolution_of(name: str, path: str | None) -> tuple[str | None, str]:
+    """Resolucion del nombre o, si no la dice, de la carpeta mas cercana de la ruta que la diga."""
+    found = _resolution_in(name or "")
+    if found:
+        return found, "nombre"
+    for folder in reversed([part for part in (path or "").replace("\\", "/").split("/") if part]):
+        found = _resolution_in(folder)
+        if found:
+            return found, "carpeta"
+    return None, ""
 
 
 def feed_xml(
@@ -76,6 +114,10 @@ def feed_xml(
             "downloadvolumefactor": "0",
             "uploadvolumefactor": "1",
         }
+        resolution, origin = resolution_of(result.name, result.source_path)
+        if resolution:
+            attrs["resolution"] = resolution
+            attrs["resolutionsource"] = origin
         if season is not None:
             attrs["season"] = str(season)
         if episode is not None:
