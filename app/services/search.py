@@ -39,42 +39,47 @@ class SearchService:
         tvdb_id: str | None,
         season: int | None,
         episode: int | None,
+        absolute: int | None = None,
     ) -> list[SearchResult]:
         category_family = (category or "").split(",", maxsplit=1)[0][:1]
         if query:
             # Radarr puede repetir la misma búsqueda variando los IDs externos.
             # Compartir la entrada evita relanzar una consulta idéntica al hub.
-            key = "|".join(str(value or "") for value in (normalize_text(query), category_family, season, episode))
+            key = "|".join(str(value or "") for value in (normalize_text(query), category_family, season, episode, absolute))
         else:
-            key = "|".join(str(value or "") for value in (category_family, imdb_id, tmdb_id, tvdb_id, season, episode))
+            key = "|".join(str(value or "") for value in (category_family, imdb_id, tmdb_id, tvdb_id, season, episode, absolute))
 
         async def perform() -> list[SearchResult]:
-            media_type = "tv" if season is not None or (category or "").startswith("5") else "movie"
+            media_type = "tv" if season is not None or absolute is not None or (category or "").startswith("5") else "movie"
             metadata = await self.metadata.details(query, imdb_id, tmdb_id, tvdb_id, media_type)
             titles = metadata.titles
             if not titles:
                 return []
             year_match = re.search(r"(?:\s|\()(\d{4})(?:\)|$)", query or "")
             variants = search_variants(titles, year_match.group(1) if year_match and media_type == "movie" else None)
-            if season is not None and episode is not None:
-                variants = [
-                    query
-                    for variant in variants
-                    for query in (f"{variant} S{season:02d}E{episode:02d}", f"{variant} {season}x{episode:02d}")
-                ]
-            max_variants = self.settings.search_max_variants * (2 if season is not None and episode is not None else 1)
+            by_episode = season is not None and episode is not None
+            per_title: list[str] = []
+            if by_episode:
+                per_title += [f" S{season:02d}E{episode:02d}", f" {season}x{episode:02d}"]
+            if absolute is not None:
+                per_title.append(f" {absolute:02d}")
+            if per_title:
+                variants = [f"{variant}{suffix}" for variant in variants for suffix in per_title]
+            max_variants = self.settings.search_max_variants * max(1, len(per_title))
             year = year_match.group(1) if year_match else None
             collected: dict[str, SearchResult] = {}
             for position, variant in enumerate(variants[:max_variants], start=1):
-                raw = await self.airdcpp.search([variant], season if episode is None else None, VIDEO_EXTENSIONS)
-                filtered = self._filter_and_rank(raw, titles, year, season, episode, media_type)
+                raw = await self.airdcpp.search(
+                    [variant], season if episode is None and absolute is None else None, VIDEO_EXTENSIONS
+                )
+                filtered = self._filter_episode_or_absolute(raw, titles, year, season, episode, media_type, absolute)
                 duplicates = 0
                 for result in filtered:
                     if result.release_id in collected:
                         duplicates += 1
                     collected[result.release_id] = result
                 # En capitulos solo cuentan los que empiezan por el titulo: "Ultimate Spiderman" no vale para "Spiderman"
-                if season is not None and episode is not None:
+                if (season is not None and episode is not None) or absolute is not None:
                     found = sum(1 for value in collected.values() if self._title_first(value.name, titles))
                 else:
                     found = len(collected)
@@ -92,8 +97,8 @@ class SearchService:
                 )
                 if enough:
                     break
-            filtered_results = self._filter_and_rank(
-                list(collected.values()), titles, year, season, episode, media_type
+            filtered_results = self._filter_episode_or_absolute(
+                list(collected.values()), titles, year, season, episode, media_type, absolute
             )
             results = self._deduplicate_file_directories(filtered_results)
             self._infer_languages(results, metadata)
@@ -110,6 +115,45 @@ class SearchService:
             return results
 
         return await self.cache.get_or_create(key, perform)
+
+    @classmethod
+    def _filter_episode_or_absolute(cls, results, titles, year, season, episode, media_type, absolute):
+        by_episode = season is not None and episode is not None
+        if absolute is None:
+            return cls._filter_and_rank(results, titles, year, season, episode, media_type)
+        accepted = cls._filter_and_rank(results, titles, year, season, episode, media_type) if by_episode else []
+        seen = {value.release_id for value in accepted}
+        for value in cls._filter_and_rank(results, titles, year, None, None, media_type, absolute):
+            if value.release_id not in seen and cls._absolute_match(value.name, titles, absolute):
+                seen.add(value.release_id)
+                accepted.append(value)
+        return accepted
+
+    @staticmethod
+    def _absolute_match(name: str, titles: list[str], absolute: int) -> bool:
+        """El primer numero tras el titulo es el capitulo absoluto: 'GT 61', 'GT_61', 'GT E61', '(0061)', '01x61', 'S01E61'."""
+        words = normalize_text(name.replace("_", " ")).split()
+        aliases = [normalize_text(clean_search_pattern(title)) for title in titles] + [
+            normalize_text(root) for root in title_roots(titles)
+        ]
+        aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in aliases]
+        skip = {"ep", "e", "episodio", "episode", "capitulo", "cap", "chapter", "no", "n"}
+        patterns = (rf"0*{absolute}", rf"e0*{absolute}", rf"ep0*{absolute}", rf"s\d{{1,2}}e0*{absolute}", rf"\d{{1,2}}x0*{absolute}")
+        for alias in dict.fromkeys(alias for alias in aliases if alias):
+            phrase = alias.split()
+            for index in range(min(3, len(words))):
+                if words[index : index + len(phrase)] != phrase:
+                    continue
+                position = index + len(phrase)
+                skipped = 0
+                while position < len(words) and skipped < 3 and (
+                    words[position] in skip or re.fullmatch(r"(?:19|20)\d{2}", words[position])
+                ):
+                    position += 1
+                    skipped += 1
+                if position < len(words) and any(re.fullmatch(p, words[position]) for p in patterns):
+                    return True
+        return False
 
     @staticmethod
     def _title_first(name: str, titles: list[str]) -> bool:
@@ -128,6 +172,7 @@ class SearchService:
         season: int | None,
         episode: int | None,
         media_type: str = "movie",
+        absolute: int | None = None,
     ) -> list[SearchResult]:
         full_aliases = [normalize_text(clean_search_pattern(title)) for title in titles]
         full_aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in full_aliases]
@@ -174,7 +219,12 @@ class SearchService:
                     if words[index : index + len(phrase)] != phrase:
                         continue
                     following = words[index + len(phrase)]
-                    if following.isdigit() and following != year and 1 <= int(following) <= (99 if media_type == "tv" else 20):
+                    if (
+                        following.isdigit()
+                        and following != year
+                        and (absolute is None or int(following) != absolute)
+                        and 1 <= int(following) <= (99 if media_type == "tv" else 20)
+                    ):
                         incompatible_number = True
             if incompatible_number:
                 rejected["sequel"] += 1

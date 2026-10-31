@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, Response
@@ -22,6 +23,7 @@ async def torznab(
     tvdbid: str | None = None,
     season: Annotated[int | None, Query(ge=0)] = None,
     ep: Annotated[int | None, Query(ge=0)] = None,
+    absolute: Annotated[int | None, Query(ge=1)] = None,
     apikey: str = "",
 ) -> Response:
     settings = request.app.state.settings
@@ -43,7 +45,14 @@ async def torznab(
         xml = feed_xml([validation], base_url, apikey, cat or ("5000" if season is not None else "2000"), season, ep)
         return Response(xml, media_type="application/xml")
     try:
-        results = await request.app.state.search_service.search(q, cat, imdbid, tmdbid, tvdbid, season, ep)
+        if absolute is None and t == "search" and q and season is None and ep is None and (cat or "").startswith("5"):
+            # Sonarr (series tipo Anime): "Dragon Ball GT 61". No se toca una fecha de serie diaria.
+            anime = re.fullmatch(r"(.+?)\s+(\d{1,4})", q.strip())
+            if anime and not re.search(r"\b(?:19|20)\d{2}\s+\d{1,2}\s+\d{1,2}$", q.strip()):
+                q, absolute = anime.group(1), int(anime.group(2))
+        results = await request.app.state.search_service.search(
+            q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=absolute
+        )
         base_url = settings.public_url or str(request.base_url).rstrip("/")
         xml = feed_xml(
             results,
