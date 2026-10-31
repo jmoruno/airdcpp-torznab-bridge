@@ -1,3 +1,4 @@
+import logging
 import urllib.parse
 
 from fastapi import APIRouter, Request, Response
@@ -20,7 +21,8 @@ async def browse_release(release_id: str, request: Request) -> Response:
     try:
         location = await request.app.state.airdcpp.open_filelist_location(release)
     except AirDCError as exc:
-        return Response(str(exc), status_code=502)
+        logging.getLogger(__name__).warning("browse %s: %s", release.release_id, exc)
+        return Response("AirDC++ no pudo abrir la carpeta", status_code=502)
     return RedirectResponse(location, status_code=302)
 
 

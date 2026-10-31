@@ -372,10 +372,26 @@ class SearchService:
         original = normalize_text(metadata.original_title or "")
         foreign = {normalize_text(t) for t in metadata.foreign_titles}
         localized_is_distinct = bool(localized and original and localized != original and localized not in foreign)
+        # Palabras que declaran cada idioma. Cuenta como "otro idioma" todo lo que no sea el de los titulos
+        # de TMDB (TMDB_LANGUAGE). Con castellano se mantiene el criterio de siempre: el ingles no lo impide.
+        language_words = {
+            "es": "spanish|espanol|castellano|latino",
+            "en": "english|ingles",
+            "de": "german|deutsch|ger",
+            "ja": "japanese|jap|jpn",
+            "fr": "french|francais|truefrench|vostfr|vff|fre",
+            "it": "italian|italiano|ita",
+            "pt": "portuguese|portugues",
+            "ko": "korean|kor",
+            "zh": "chinese|mandarin|cantonese",
+            "xx": "russian|rus|polish|pol|dutch|swedish|danish|norwegian|finnish|nordic|czech|hungarian|turkish"
+            "|hindi|thai|vietnamese|ukrainian|greek",
+        }
+        local_lang = metadata.localized_language or "es"
+        local_name = language_names.get(local_lang)
+        skip = {local_lang} | ({"en"} if local_lang == "es" else set())
         other_language = re.compile(
-            r"\b(?:german|deutsch|ger|japanese|jap|jpn|french|francais|truefrench|vostfr|vff|fre|italian|italiano|ita"
-            r"|russian|rus|portuguese|portugues|korean|kor|chinese|mandarin|cantonese|polish|pol|dutch|swedish"
-            r"|danish|norwegian|finnish|nordic|czech|hungarian|turkish|hindi|thai|vietnamese|ukrainian|greek)\b"
+            r"\b(?:" + "|".join(words for code, words in language_words.items() if code not in skip) + r")\b"
         )
         localized_words = localized.split()
 
@@ -387,8 +403,8 @@ class SearchService:
                 for index in range(min(3, len(words) - len(localized_words) + 1))
             )
             declares_other = bool(other_language.search(normalize_text(result.name)))
-            if localized_match and "Spanish" not in languages and not declares_other:
-                languages.append("Spanish")
+            if localized_match and local_name and local_name not in languages and not declares_other:
+                languages.append(local_name)
             if localized_match and re.search(r"\bmulti\b", normalize_text(result.name)):
                 original_language = language_names.get(metadata.original_language or "")
                 if original_language and original_language not in languages:

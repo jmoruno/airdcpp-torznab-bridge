@@ -22,6 +22,7 @@ services:
 
       # Opcional pero recomendado: titulos traducidos (alias en espanol)
       - TMDB_API_KEY=${TMDB_API_KEY}
+      - TMDB_LANGUAGE=${TMDB_LANGUAGE:-es-ES}
 
       # Links desde Radarr/Sonarr a la carpeta en AirDC++
       - AIRDCPP_WEB_URL=${AIRDCPP_WEB_URL}
@@ -69,6 +70,7 @@ services:
 
       # Opcional pero recomendado: titulos traducidos (alias en espanol)
       - TMDB_API_KEY=${TMDB_API_KEY}
+      - TMDB_LANGUAGE=${TMDB_LANGUAGE:-es-ES}
 
       # Links desde Radarr/Sonarr a la carpeta en AirDC++
       - AIRDCPP_WEB_URL=${AIRDCPP_WEB_URL}

@@ -111,6 +111,7 @@ Si Radarr o Sonarr ven la carpeta de descargas con otra ruta que AirDC++, añade
 | Variable | Por defecto | Para qué |
 | --- | --- | --- |
 | `TMDB_API_KEY` | — | Títulos en español y alternativos, idioma original y detección de anime. Sin ella se busca solo por el título que manda Arr |
+| `TMDB_LANGUAGE` | `es-ES` | Idioma de los títulos de TMDB y el que se deduce cuando el nombre empieza por ese título (`en-US`, `fr-FR`…) |
 | `DOWNLOAD_CATEGORIES` | `radarr,sonarr,radarr4k,sonarr4k` | Categorías aceptadas. Añade `stremio` si usas el addon |
 | `AIRDCPP_WEB_URL` | — | Enlace desde el resultado en Arr a la carpeta en AirDC++ |
 

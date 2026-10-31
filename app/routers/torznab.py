@@ -48,9 +48,10 @@ async def torznab(
     try:
         if absolute is None and t == "search" and q and season is None and ep is None and (cat or "").startswith("5"):
             # Sonarr (series tipo Anime): "Dragon Ball GT 61". No se toca una fecha de serie diaria.
-            anime = re.fullmatch(r"(.+?)\s+(\d{1,4})", q.strip())
-            if anime and not re.search(r"\b(?:19|20)\d{2}\s+\d{1,2}\s+\d{1,2}$", q.strip()):
-                q, absolute = anime.group(1), int(anime.group(2))
+            title, _, number = q.strip().rpartition(" ")
+            daily = re.search(r"\b(?:19|20)\d{2} \d{1,2} \d{1,2}$", " ".join(q.split()))
+            if title.strip() and number.isdigit() and len(number) <= 4 and not daily:
+                q, absolute = title.strip(), int(number)
         if partial:
             results = request.app.state.search_service.peek(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute)
         else:

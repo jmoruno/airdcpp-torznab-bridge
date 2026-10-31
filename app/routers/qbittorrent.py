@@ -1,3 +1,4 @@
+import re
 import logging
 import hashlib
 import time
@@ -144,7 +145,8 @@ async def torrent_info(request: Request, category: str | None = None):
     try:
         records = await _refresh(request, category)
     except AirDCError as exc:
-        return Response(str(exc), status_code=502, media_type="text/plain")
+        logging.getLogger("bridge.fix").warning("torrents/info: %s", exc)
+        return Response("Error al consultar AirDC++", status_code=502, media_type="text/plain")
     settings = request.app.state.settings
     return [_qbit_item(record, settings.save_path, settings.completed_ratio) for record in records]
 
@@ -218,6 +220,9 @@ async def torrent_add(request: Request) -> Response:
         params = urllib.parse.parse_qs(parsed.query)
         xt = params.get("xt", [""])[0]
         release_id = xt.rsplit(":", 1)[-1]
+        if not re.fullmatch(r"[A-Za-z0-9]{1,64}", release_id):
+            logging.getLogger("bridge.fix").warning("torrents/add: identificador no valido")
+            continue
         release = await request.app.state.repository.get_release(release_id)
         if not release:
             logging.getLogger("bridge.fix").warning("torrents/add: release %s no encontrado en la BD", release_id)
@@ -257,7 +262,8 @@ async def torrent_delete(request: Request) -> Response:
             try:
                 await request.app.state.airdcpp.remove_bundle(record.bundle_id, delete_files)
             except AirDCError as exc:
-                return Response(str(exc), status_code=502)
+                logging.getLogger("bridge.fix").warning("torrents/delete %s: %s", record.bundle_id, exc)
+                return Response("Error al quitar la descarga en AirDC++", status_code=502)
         await request.app.state.repository.mark_removed(download_id)
     return Response("Ok.", media_type="text/plain")
 

@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     allow_insecure: bool = False
 
     tmdb_api_key: SecretStr = SecretStr("")
+    tmdb_language: str = Field(default="es-ES", pattern=r"^[a-z]{2}(-[A-Z]{2})?$")
     data_dir: Path = Path("/app/data")
     save_path: str = "/downloads"
     download_categories: str = "radarr,sonarr,radarr4k,sonarr4k"

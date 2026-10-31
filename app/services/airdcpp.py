@@ -697,8 +697,8 @@ class AirDCClient:
                     f"{self.settings.airdcpp_url}/api/v1/filelists/directory_downloads/{download_id}",
                     headers=self.headers,
                 )
-            except httpx.HTTPError:
-                pass
+            except httpx.HTTPError as exc:
+                logger.debug("No se pudo cancelar la descarga de carpeta %s: %s", download_id, exc)
         raise AirDCError("AirDC++ no termino de preparar la carpeta a tiempo")
 
     async def remove_bundle(self, bundle_id: str, delete_files: bool = False) -> None:

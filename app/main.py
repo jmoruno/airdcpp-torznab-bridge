@@ -30,7 +30,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         timeout = httpx.Timeout(configured.search_timeout + 5, connect=5)
         http = httpx.AsyncClient(timeout=timeout, follow_redirects=False, trust_env=False)
         airdcpp = AirDCClient(http, configured)
-        metadata = MetadataClient(http, configured.tmdb_api_key.get_secret_value())
+        metadata = MetadataClient(http, configured.tmdb_api_key.get_secret_value(), configured.tmdb_language)
         cache = AsyncTTLCache(
             configured.search_cache_ttl, configured.search_negative_cache_ttl, configured.search_cache_size
         )
