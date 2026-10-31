@@ -21,6 +21,8 @@ Es una versión propia de [Antaneyes/airdcpp-torznab-bridge](https://github.com/
 - [API](#api)
 - [Problemas frecuentes](#problemas-frecuentes)
 - [Desarrollo y publicación](#desarrollo-y-publicación)
+- [Licencia](#licencia)
+- [Aviso legal](#aviso-legal)
 
 ## Imagen Docker
 
@@ -220,6 +222,20 @@ git rebase <nueva-etiqueta>
 ```
 
 `UPGRADING.md`, `CHANGELOG.md` y `docs/` son la documentación del original y se mantienen tal cual para facilitar las actualizaciones.
+
+## Licencia
+
+[GPL-3.0](LICENSE), la misma que el proyecto original de [Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge). Esta versión está modificada por Jesús Moruno (2026); los cambios están descritos en [Cambios respecto al original](#cambios-respecto-al-original) y en el historial de commits. Puedes usarla, modificarla y redistribuirla, siempre que las versiones derivadas sigan siendo GPL-3.0 y con el código disponible.
+
+## Aviso legal
+
+Este software se ofrece **tal cual**, sin garantías de ningún tipo (ver [LICENSE](LICENSE)). El autor no se hace responsable de ningún daño, pérdida ni reclamación derivados de su uso.
+
+- **No incluye, aloja ni distribuye contenido.** Es una herramienta técnica que solo se conecta a los servicios que configura cada usuario en su propia instalación.
+- **Cada usuario es el único responsable** de cómo lo usa y de cumplir la legislación aplicable (incluida la de propiedad intelectual) y las normas de los servicios y hubs a los que se conecta. Úsalo solo con contenido que tengas derecho a descargar o reproducir.
+- **No está afiliado** a AirDC++, Stremio, Nuvio, Radarr, Sonarr, TMDB, TVmaze ni a ningún otro proyecto o marca mencionado, ni cuenta con su respaldo. Los nombres pertenecen a sus respectivos titulares.
+
+*This software is provided "as is", without warranty of any kind. It does not include, host or distribute any content. Users are solely responsible for how they use it and for complying with applicable laws and the terms of the services they connect to. Not affiliated with or endorsed by any of the projects mentioned.*
 
 ## Apoyar el proyecto
 
