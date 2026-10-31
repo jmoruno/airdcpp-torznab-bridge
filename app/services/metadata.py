@@ -13,6 +13,8 @@ class MediaMetadata:
     localized_title: str | None = None
     original_title: str | None = None
     original_language: str | None = None
+    season_counts: dict = field(default_factory=dict)
+    anime: bool = False
 
 
 class MetadataClient:
@@ -52,7 +54,9 @@ class MetadataClient:
         if query:
             found.append(query)
         unique = list(dict.fromkeys(t.strip() for t in found if t and t.strip()))
-        metadata = MediaMetadata(unique, tmdb.localized_title, tmdb.original_title, tmdb.original_language)
+        metadata = MediaMetadata(
+            unique, tmdb.localized_title, tmdb.original_title, tmdb.original_language, tmdb.season_counts, tmdb.anime
+        )
         self._cache[key] = metadata
         return metadata
 
@@ -113,7 +117,16 @@ class MetadataClient:
             titles.extend(
                 (v.get("title") or v.get("name")) for v in alternatives if v.get("iso_3166_1") in {None, "ES"}
             )
-            return MediaMetadata([t for t in titles if t], localized, original, data.get("original_language"))
+            counts = {
+                int(value["season_number"]): int(value.get("episode_count") or 0)
+                for value in data.get("seasons") or []
+                if value.get("season_number") is not None
+            }
+            genres = {int(value.get("id") or 0) for value in data.get("genres") or []}
+            anime = kind == "tv" and data.get("original_language") == "ja" and 16 in genres
+            return MediaMetadata(
+                [t for t in titles if t], localized, original, data.get("original_language"), counts, anime
+            )
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("No se pudieron obtener metadatos de TMDB: %s", exc)
             return MediaMetadata()

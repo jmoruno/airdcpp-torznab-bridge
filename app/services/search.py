@@ -7,7 +7,7 @@ from app.services.airdcpp import AirDCClient
 from app.services.cache import AsyncTTLCache
 from app.services.database import Repository
 from app.services.metadata import MediaMetadata, MetadataClient
-from app.utils.text import clean_search_pattern, detect_languages, normalize_text, search_variants, title_roots
+from app.utils.text import clean_search_pattern, detect_languages, normalize_text, search_variants, title_roots, strip_diacritics
 
 VIDEO_EXTENSIONS = (".mkv", ".avi", ".mp4", ".m4v", ".mov", ".wmv", ".mpg", ".mpeg")
 MIN_VIDEO_SIZE = 50 * 1024 * 1024
@@ -50,6 +50,7 @@ class SearchService:
             key = "|".join(str(value or "") for value in (category_family, imdb_id, tmdb_id, tvdb_id, season, episode, absolute))
 
         async def perform() -> list[SearchResult]:
+            nonlocal absolute
             media_type = "tv" if season is not None or absolute is not None or (category or "").startswith("5") else "movie"
             metadata = await self.metadata.details(query, imdb_id, tmdb_id, tvdb_id, media_type)
             titles = metadata.titles
@@ -58,11 +59,25 @@ class SearchService:
             year_match = re.search(r"(?:\s|\()(\d{4})(?:\)|$)", query or "")
             variants = search_variants(titles, year_match.group(1) if year_match and media_type == "movie" else None)
             by_episode = season is not None and episode is not None
+            # En un hub espanol los titulos en japones no encuentran nada y cada consulta cuesta ~15 s
+            latin = [value for value in variants if all(c.isascii() or not c.isalpha() for c in strip_diacritics(value))]
+            variants = latin or variants
+            explicit_absolute = absolute is not None and not by_episode
+            if by_episode and metadata.anime and metadata.season_counts:
+                # Numeracion absoluta con TMDB: vale para T4E14 (TMDB/Nuvio) y para T3E21 (Cinemeta)
+                absolute = absolute or sum(
+                    count for number, count in metadata.season_counts.items() if 1 <= number < season
+                ) + episode
+            use_absolute = absolute is not None and (explicit_absolute or metadata.anime)
+            if not use_absolute:
+                absolute = None
             per_title: list[str] = []
+            if use_absolute:
+                per_title.append(f" {absolute:02d}")
             if by_episode:
                 per_title += [f" S{season:02d}E{episode:02d}", f" {season}x{episode:02d}"]
-            if absolute is not None:
-                per_title.append(f" {absolute:02d}")
+            if use_absolute:
+                logger.info("Anime: capitulo absoluto %d", absolute)
             if per_title:
                 variants = [f"{variant}{suffix}" for variant in variants for suffix in per_title]
             max_variants = self.settings.search_max_variants * max(1, len(per_title))
