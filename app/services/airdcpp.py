@@ -430,6 +430,7 @@ class AirDCClient:
                     marked = [(value, episode_marker(str(value.get("name") or ""))) for value in all_videos]
                     videos = [value for value, marker in marked if marker and marker[0] == season]
                     mixed_root = any(marker and marker[0] != season for _, marker in marked)
+                videos = [value for value in videos if (episode_marker(str(value.get("name") or "")) or (0, -1))[1] != 0]
                 markers = [episode_marker(str(value.get("name") or "")) for value in videos]
                 if len(markers) < 2 or any(marker is None or marker[0] != season for marker in markers):
                     return None
