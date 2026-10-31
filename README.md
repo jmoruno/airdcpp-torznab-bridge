@@ -1,5 +1,7 @@
 # AirDC++ Torznab Bridge (jmoruno)
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-jmoruno-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jmoruno)
+
 Puente entre **Radarr / Sonarr** y los hubs de **AirDC++**:
 
 - **Indexador Torznab**: Radarr y Sonarr buscan en los hubs como si fuera un tracker.
@@ -218,3 +220,7 @@ git rebase <nueva-etiqueta>
 ```
 
 `UPGRADING.md`, `CHANGELOG.md` y `docs/` son la documentación del original y se mantienen tal cual para facilitar las actualizaciones.
+
+## Apoyar el proyecto
+
+Si te resulta útil, puedes invitarme a un café: [buymeacoffee.com/jmoruno](https://buymeacoffee.com/jmoruno) ☕
