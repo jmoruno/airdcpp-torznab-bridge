@@ -174,15 +174,18 @@ class SearchService:
                     if words[index : index + len(phrase)] != phrase:
                         continue
                     following = words[index + len(phrase)]
-                    if following.isdigit() and following != year and 1 <= int(following) <= 20:
+                    if following.isdigit() and following != year and 1 <= int(following) <= (99 if media_type == "tv" else 20):
                         incompatible_number = True
             if incompatible_number:
                 rejected["sequel"] += 1
                 continue
             if season is not None and episode is not None:
-                compact = "".join(words)
-                episode_patterns = (f"s{season:02d}e{episode:02d}", f"{season}x{episode:02d}")
-                if not any(pattern in compact for pattern in episode_patterns):
+                spaced = " ".join(words)
+                episode_patterns = (
+                    rf"(?<![a-z0-9])s0*{season} ?e0*{episode}(?![0-9])",
+                    rf"(?<![0-9])0*{season} ?x ?0*{episode}(?![0-9])",
+                )
+                if not any(re.search(pattern, spaced) for pattern in episode_patterns):
                     rejected["episode"] += 1
                     continue
             best_position = min(position for position, _ in matches)
