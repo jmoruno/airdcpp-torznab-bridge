@@ -605,7 +605,7 @@ class AirDCClient:
                 instance_id = created.json()["id"]
                 await self.http.post(
                     f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/hub_search",
-                    json={"query": {"pattern": release.tth or release.source_name or release.name}, "hub_urls": []},
+                    json={"query": ({"pattern": release.tth, "file_type": "tth"} if release.tth else {"pattern": release.source_name or release.name}), "hub_urls": []},
                     headers=self.headers,
                 )
                 deadline = time.monotonic() + self.settings.search_timeout
@@ -623,7 +623,7 @@ class AirDCClient:
                             (not release.source_cid or user.get("cid") == release.source_cid)
                             and (not release.source_path or item.get("path") == release.source_path)
                         )
-                        if source_matches and ((release.tth and item.get("tth") == release.tth) or (
+                        if (release.tth and item.get("tth") == release.tth) or source_matches and ((
                             int(float(item.get("size", 0))) == release.size
                             and normalize_text(item.get("name", ""))
                             == normalize_text(release.source_name or release.name)
@@ -634,7 +634,7 @@ class AirDCClient:
                     raise AirDCError("No se encontró una fuente exacta para la descarga")
                 response = await self.http.post(
                     f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/results/{selected['id']}/download",
-                    json={"priority": 3},
+                    json={"priority": 3, "target_directory": f"{self.settings.save_path.rstrip('/')}/"},
                     headers=self.headers,
                 )
                 response.raise_for_status()

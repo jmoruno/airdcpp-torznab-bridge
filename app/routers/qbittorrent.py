@@ -1,3 +1,4 @@
+import logging
 import hashlib
 import time
 import urllib.parse
@@ -219,6 +220,7 @@ async def torrent_add(request: Request) -> Response:
         release_id = xt.rsplit(":", 1)[-1]
         release = await request.app.state.repository.get_release(release_id)
         if not release:
+            logging.getLogger("bridge.fix").warning("torrents/add: release %s no encontrado en la BD", release_id)
             continue
         try:
             bundle_id = await request.app.state.airdcpp.download(release)
@@ -234,7 +236,8 @@ async def torrent_add(request: Request) -> Response:
                 )
             )
             success = True
-        except AirDCError:
+        except AirDCError as exc:
+            logging.getLogger("bridge.fix").warning("torrents/add: fallo al descargar %s: %s", release.name, exc)
             continue
     return Response("Ok." if success else "Fallo.", status_code=200 if success else 502, media_type="text/plain")
 
