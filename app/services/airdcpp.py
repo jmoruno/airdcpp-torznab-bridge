@@ -138,6 +138,13 @@ class AirDCClient:
                 except httpx.HTTPError:
                     logger.warning("No se pudo eliminar la búsqueda AirDC++ %s", instance_id)
 
+    @staticmethod
+    def _queue_seconds(response: httpx.Response) -> float:
+        try:
+            return min(max(float(response.json().get("queue_time") or 0) / 1000, 0.0), 120.0)
+        except (ValueError, TypeError, AttributeError):
+            return 0.0
+
     async def _collect_search_results(self, instance_id: str | int, query_data: dict[str, object]) -> list[dict]:
         response = await self.http.post(
             f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/hub_search",
@@ -145,7 +152,10 @@ class AirDCClient:
             headers=self.headers,
         )
         response.raise_for_status()
-        deadline = time.monotonic() + self.settings.search_timeout
+        queued = self._queue_seconds(response)
+        if queued:
+            logger.info("Busqueda en cola de AirDC++: %.1f s", queued)
+        deadline = time.monotonic() + queued + self.settings.search_timeout
         raw: list[dict] = []
         previous = -1
         stable = 0
@@ -604,12 +614,12 @@ class AirDCClient:
                 )
                 created.raise_for_status()
                 instance_id = created.json()["id"]
-                await self.http.post(
+                queued_response = await self.http.post(
                     f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/hub_search",
                     json={"query": ({"pattern": release.tth, "file_type": "tth"} if release.tth else {"pattern": release.source_name or release.name}), "hub_urls": []},
                     headers=self.headers,
                 )
-                deadline = time.monotonic() + max(self.settings.search_timeout, float(__import__('os').environ.get('DOWNLOAD_SEARCH_TIMEOUT', '30')))
+                deadline = time.monotonic() + self._queue_seconds(queued_response) + max(self.settings.search_timeout, float(__import__('os').environ.get('DOWNLOAD_SEARCH_TIMEOUT', '30')))
                 selected = None
                 while time.monotonic() < deadline and selected is None:
                     await asyncio.sleep(self.settings.search_poll_interval)
