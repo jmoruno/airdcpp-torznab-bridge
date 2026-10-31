@@ -22,6 +22,7 @@ class MetadataClient:
         self.client = client
         self.tmdb_api_key = tmdb_api_key
         self._cache: dict[str, MediaMetadata] = {}
+        self._counts: dict[str, dict[int, int]] = {}
 
     async def titles(
         self,
@@ -130,6 +131,32 @@ class MetadataClient:
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("No se pudieron obtener metadatos de TMDB: %s", exc)
             return MediaMetadata()
+
+    async def episode_counts(self, imdb_id: str | None, tvdb_id: str | None) -> dict[int, int]:
+        """Capitulos por temporada segun TVmaze (misma numeracion que TVDB)."""
+        if not (imdb_id or tvdb_id):
+            return {}
+        key = f"{imdb_id}|{tvdb_id}"
+        if key in self._counts:
+            return self._counts[key]
+        counts: dict[int, int] = {}
+        try:
+            params = {"imdb" if imdb_id else "thetvdb": imdb_id or tvdb_id}
+            lookup = await self.client.get("https://api.tvmaze.com/lookup/shows", params=params, follow_redirects=True)
+            if lookup.status_code != 404:
+                lookup.raise_for_status()
+                show_id = lookup.json().get("id")
+                if show_id:
+                    episodes = await self.client.get(f"https://api.tvmaze.com/shows/{show_id}/episodes")
+                    episodes.raise_for_status()
+                    for value in episodes.json():
+                        if value.get("season") and value.get("number"):
+                            counts[int(value["season"])] = counts.get(int(value["season"]), 0) + 1
+        except (httpx.HTTPError, KeyError, ValueError, TypeError) as exc:
+            logger.warning("No se pudo obtener la numeracion de TVmaze: %s", exc)
+            return {}
+        self._counts[key] = counts
+        return counts
 
     async def _tvmaze_titles(self, imdb_id: str | None, tvdb_id: str | None) -> list[str]:
         try:

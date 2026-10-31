@@ -58,22 +58,22 @@ class SearchService:
             # En un hub espanol los titulos en japones no encuentran nada y cada consulta cuesta ~15 s
             latin = [value for value in variants if all(c.isascii() or not c.isalpha() for c in strip_diacritics(value))]
             variants = latin or variants
-            explicit_absolute = absolute is not None and not by_episode
-            if by_episode and metadata.anime and metadata.season_counts:
-                # Numeracion absoluta con TMDB: vale para T4E14 (TMDB/Nuvio) y para T3E21 (Cinemeta)
-                absolute = absolute or sum(
-                    count for number, count in metadata.season_counts.items() if 1 <= number < season
-                ) + episode
-            use_absolute = absolute is not None and (explicit_absolute or metadata.anime)
-            if not use_absolute:
-                absolute = None
-            per_title: list[str] = []
-            if use_absolute:
-                per_title.append(f" {absolute:02d}")
+            candidates: list[int] = []
+            if absolute is not None and not by_episode:
+                candidates.append(absolute)  # Sonarr (tipo Anime) ya pide el absoluto
+            elif by_episode and metadata.anime:
+                # Numeracion de TVmaze/TVDB (Nuvio, Sonarr); si no hay, la de TMDB
+                counts = await self.metadata.episode_counts(imdb_id, tvdb_id) or metadata.season_counts
+                if counts:
+                    candidates.append(sum(count for number, count in counts.items() if 1 <= number < season) + episode)
+                if absolute is not None:
+                    candidates.append(absolute)  # numeracion de Cinemeta que calcula el addon (Stremio)
+            absolute = tuple(dict.fromkeys(candidates)) or None
+            per_title: list[str] = [f" {value:02d}" for value in absolute or ()]
             if by_episode:
                 per_title += [f" S{season:02d}E{episode:02d}", f" {season}x{episode:02d}"]
-            if use_absolute:
-                logger.info("Anime: capitulo absoluto %d", absolute)
+            if absolute:
+                logger.info("Anime: capitulo absoluto %s", "/".join(str(value) for value in absolute))
             if per_title:
                 variants = [f"{variant}{suffix}" for variant in variants for suffix in per_title]
             max_variants = self.settings.search_max_variants * max(1, len(per_title))
@@ -167,8 +167,13 @@ class SearchService:
                 accepted.append(value)
         return accepted
 
+    @classmethod
+    def _absolute_match(cls, name: str, titles: list[str], absolute) -> bool:
+        values = (absolute,) if isinstance(absolute, int) else tuple(absolute or ())
+        return any(cls._absolute_match_one(name, titles, value) for value in values)
+
     @staticmethod
-    def _absolute_match(name: str, titles: list[str], absolute: int) -> bool:
+    def _absolute_match_one(name: str, titles: list[str], absolute: int) -> bool:
         """El primer numero tras el titulo es el capitulo absoluto: 'GT 61', 'GT_61', 'GT E61', '(0061)', '01x61', 'S01E61'."""
         words = normalize_text(name.replace("_", " ")).split()
         aliases = [normalize_text(clean_search_pattern(title)) for title in titles] + [
@@ -260,7 +265,7 @@ class SearchService:
                     if (
                         following.isdigit()
                         and following != year
-                        and (absolute is None or int(following) != absolute)
+                        and int(following) not in ((absolute,) if isinstance(absolute, int) else tuple(absolute or ()))
                         and 1 <= int(following) <= (99 if media_type == "tv" else 20)
                     ):
                         incompatible_number = True
