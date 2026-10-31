@@ -4,6 +4,16 @@ Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión 
 
 Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
+## [2.1.1] - 2026-10-31
+
+### Corregido
+
+- `/health` y la API muestran la versión real en lugar de `2.0.0-beta.4`.
+
+### Cambiado
+
+- Quitados ficheros del original que no aplican a esta versión (`launch_docker.bat`, `UPGRADING.md`, `docs/`). `docker-compose.yml` y `.env.example` son los de esta versión.
+
 ## [2.1.0] - 2026-10-31
 
 Primera versión propia, basada en la `2.0.0-beta.4` de Antaneyes.
