@@ -225,7 +225,9 @@ async def torrent_add(request: Request) -> Response:
             continue
         release = await request.app.state.repository.get_release(release_id)
         if not release:
-            logging.getLogger("bridge.fix").warning("torrents/add: release %s no encontrado en la BD", release_id)
+            logging.getLogger("bridge.fix").warning(
+                "torrents/add: release %s no encontrado en la BD", release_id.replace("\r", "").replace("\n", "")
+            )
             continue
         try:
             bundle_id = await request.app.state.airdcpp.download(release)
