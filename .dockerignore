@@ -8,7 +8,6 @@ __pycache__/
 Dockerfile
 docker-compose.yml
 README.md
-launch_docker.bat
 test/
 brain/
 implementation_plan.md

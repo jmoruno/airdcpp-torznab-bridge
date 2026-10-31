@@ -1,56 +1,28 @@
-# Changelog
+# Registro de cambios
 
-All notable changes are documented here. This project follows semantic versioning while allowing breaking changes between beta releases.
+Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión también están en las [releases](../../releases).
 
-## [2.0.0-beta.4] - 2026-08-15
+Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
-### Fixed
+## [2.1.0] - 2026-10-31
 
-- Season downloads now use Sonarr-compatible bundle names and stay inside the configured AirDC++ download directory.
-- Season inspection now works when the same user's file list is already open in another directory.
-- Concurrent searches and result links coordinate file-list navigation per user and restore the previous directory after inspection.
-- The runtime image no longer includes `pip` or its unused vendored build dependencies.
+Primera versión propia, basada en la `2.0.0-beta.4` de Antaneyes.
 
-## [2.0.0-beta.3] - 2026-08-05
+### Añadido
 
-### Added
+- Numeración absoluta (parámetro Torznab `absolute` y `q="Título 61"` de Sonarr en modo anime), con las temporadas de TVmaze.
+- Detección de anime con TMDB: prueba primero el número absoluto y no busca títulos en japonés.
+- Resultados parciales con `&partial=1`, para el addon airdcpp-stream.
+- Resolución tomada de la carpeta de AirDC++ cuando el nombre del fichero no la indica.
+- `DOWNLOAD_SEARCH_TIMEOUT`: espera aparte para volver a encontrar la fuente al descargar.
+- Imagen en Docker Hub (`jmorunofdz/airdcpp-torznab-bridge`) con canales `stable`, `beta` y `dev`.
 
-- Searches retry title variants without diacritics for hubs that distinguish accented text.
-- Season searches prioritize directory results before falling back to mixed result types.
-- A documented design for optional synthetic RSS support is preserved for future work.
+### Corregido
 
-### Fixed
-
-- Valid season folders are less likely to be hidden by a hub's per-user limit on individual file results.
-
-## [2.0.0-beta.2] - 2026-08-05
-
-### Added
-
-- Season and episode search support for nested and mixed-season folders.
-- Selective AirDC++ bundles that download only the requested season.
-- Clickable links from Arr results to the source folder in AirDC++.
-- Automatic, idempotent import of v1 `bridge_hashes.json` state.
-- Configurable public URLs, download categories, save paths and virtual ratio.
-- Bilingual install and upgrade documentation.
-
-### Changed
-
-- Rewritten as a modular asynchronous FastAPI application with SQLite persistence.
-- Stricter title/year relevance, language hints and real AirDC++ publication dates.
-- Authentication is required by default for Torznab and qBittorrent-compatible APIs.
-- Docker container runs read-only as an unprivileged user with all capabilities dropped.
-
-### Fixed
-
-- Arr indexer validation no longer masquerades as a real movie result.
-- Short titles, translated titles and folders containing multiple seasons are handled safely.
-- An already-open AirDC++ file list is reused safely when it is already at the required folder.
-- Completed downloads report compatible queue state, content paths and ratio.
-
-### Known limitations
-
-- Language detection depends on explicit release-name hints or reliable title metadata.
-- The AirDC++ date is the best date exposed by the hub and may be much older than the upload date.
-- Folder inspection can fail when a remote user's file list is unavailable or already open in another session.
-- v2 remains a beta until selective season downloads have received broader real-world testing.
+- Descargas: vuelve a encontrar la fuente por TTH y respeta la carpeta de destino en ficheros sueltos.
+- Las películas que AirDC++ encuentra como carpeta se descargan como carpeta, en vez de fallar con un 502.
+- La espera de cada búsqueda cuenta desde que sale de la cola de AirDC++.
+- Capítulos: también como `1x01`, con nombres que llevan guiones bajos, coincidencia exacta (`S01E01` ≠ `S01E010`) y sin series con número detrás del título.
+- Temporadas en subcarpetas: más inspección y el nombre incluye la subcarpeta. Ignora el capítulo 0 al validar.
+- Idioma: ya no marca como "Spanish" por el título cuando ese título es igual en otros idiomas, ni cuando el nombre declara otro idioma.
+- `Título (Alternativo) (Año)` se envía como `Título (Año) (Alternativo)` para que Radarr y Sonarr lo emparejen.

@@ -45,8 +45,8 @@ Se usan **dos contenedores con la misma imagen**: uno para películas y otro par
 | `airdcpp-bridge-movies` | 8001 | `/Downloads` | `radarr,radarr4k,stremio` |
 | `airdcpp-bridge-series` | 8002 | `/DownloadsSeries` | `sonarr,sonarr4k,stremio` |
 
-1. Crea un stack con [`docker-compose.unraid.yml`](docker-compose.unraid.yml).
-2. En las variables del stack, carga un `.env` con los valores de [`unraid.env.example`](unraid.env.example): contraseñas, claves y URLs.
+1. Crea un stack con [`docker-compose.yml`](docker-compose.yml).
+2. En las variables del stack, carga un `.env` con los valores de [`.env.example`](.env.example): contraseñas, claves y URLs.
 3. Despliega y comprueba que funciona:
 
 ```bash
@@ -224,7 +224,9 @@ git fetch upstream --tags
 git rebase <nueva-etiqueta>
 ```
 
-`UPGRADING.md`, `CHANGELOG.md` y `docs/` son la documentación del original y se mantienen tal cual para facilitar las actualizaciones.
+Al traer cambios del original, los ficheros que esta versión ha quitado (`launch_docker.bat`, `UPGRADING.md`, `docs/`) pueden salir como conflicto: se resuelven dejándolos borrados.
+
+El historial de versiones está en [CHANGELOG.md](CHANGELOG.md).
 
 ## Licencia
 

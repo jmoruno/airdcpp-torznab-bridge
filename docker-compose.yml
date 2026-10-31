@@ -1,18 +1,97 @@
 services:
-  airdcpp-bridge:
-    image: ghcr.io/antaneyes/airdcpp-torznab-bridge:${BRIDGE_IMAGE_TAG:-beta}
-    container_name: airdcpp-bridge
-    ports:
-      - "${BRIDGE_PORT:-8001}:8000"
-    env_file:
-      - ${BRIDGE_ENV_FILE:-.env}
+  airdcpp-bridge-movies:
+    # Imagen publicada por GitHub Actions desde este repositorio
+    image: jmorunofdz/airdcpp-torznab-bridge:stable
+    container_name: airdcpp-bridge-movies
+    environment:
+      # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
+      - AIRDCPP_URL=http://host.docker.internal:54345
+      - AIRDCPP_USER=admin
+      - AIRDCPP_PASS=${AIRDCPP_PASS}
+      # Ruta de descargas de peliculas TAL COMO LA VE AirDC++
+      - SAVE_PATH=/Downloads
+
+      # --- Credenciales que pondras en Radarr/Sonarr ---
+      - BRIDGE_API_KEY=${BRIDGE_API_KEY}
+      - BRIDGE_USERNAME=bridge
+      - BRIDGE_PASSWORD=${BRIDGE_PASSWORD}
+
+      # URL con la que Radarr/Sonarr llegan al bridge
+      - PUBLIC_URL=${BRIDGE_MOVIES_PUBLIC_URL}
+      - DOWNLOAD_CATEGORIES=radarr,radarr4k,stremio
+
+      # Opcional pero recomendado: titulos traducidos (alias en espanol)
+      - TMDB_API_KEY=${TMDB_API_KEY}
+
+      # Links desde Radarr/Sonarr a la carpeta en AirDC++
+      - AIRDCPP_WEB_URL=${AIRDCPP_WEB_URL}
+      - ALLOW_FILE_DELETE=false
+      - LOG_LEVEL=INFO
+
+      # Espera por variante de titulo al buscar (Radarr/Sonarr/addon)
+      - SEARCH_TIMEOUT=10
+      # Espera para reencontrar la fuente en los hubs al pulsar descargar
+      - DOWNLOAD_SEARCH_TIMEOUT=30
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - host.docker.internal:host-gateway
+    ports:
+      - 8001:8000
     volumes:
       - bridge-data:/app/data
     read_only: true
     tmpfs:
-      - /tmp:size=16m,mode=1777
+      - /tmp:size=16m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    restart: unless-stopped
+
+  airdcpp-bridge-series:
+    image: jmorunofdz/airdcpp-torznab-bridge:stable
+    container_name: airdcpp-bridge-series
+    environment:
+      # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
+      - AIRDCPP_URL=http://host.docker.internal:54345
+      - AIRDCPP_USER=admin
+      - AIRDCPP_PASS=${AIRDCPP_PASS}
+      # Carpeta de series TAL COMO LA VE AirDC++
+      - SAVE_PATH=/DownloadsSeries
+
+      # --- Credenciales que pondras en Radarr/Sonarr ---
+      - BRIDGE_API_KEY=${BRIDGE_API_KEY}
+      - BRIDGE_USERNAME=bridge
+      - BRIDGE_PASSWORD=${BRIDGE_PASSWORD}
+
+      # URL con la que Radarr/Sonarr llegan al bridge
+      - PUBLIC_URL=${BRIDGE_SERIES_PUBLIC_URL}
+      - DOWNLOAD_CATEGORIES=sonarr,sonarr4k,stremio
+
+      # Opcional pero recomendado: titulos traducidos (alias en espanol)
+      - TMDB_API_KEY=${TMDB_API_KEY}
+
+      # Links desde Radarr/Sonarr a la carpeta en AirDC++
+      - AIRDCPP_WEB_URL=${AIRDCPP_WEB_URL}
+      - ALLOW_FILE_DELETE=false
+      - LOG_LEVEL=INFO
+
+      # Espera por variante de titulo al buscar (Radarr/Sonarr/addon)
+      - SEARCH_TIMEOUT=10
+      # Espera para reencontrar la fuente en los hubs al pulsar descargar
+      - DOWNLOAD_SEARCH_TIMEOUT=30
+
+      # Packs dentro de carpetas de serie (Serie/T.2 ...): mas carpetas y mas tiempo para abrir listas
+      - SEASON_INSPECT_MAX=200
+      - SEASON_INSPECT_TIMEOUT=60
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    ports:
+      - 8002:8000
+    volumes:
+      - bridge-series-data:/app/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
     security_opt:
       - no-new-privileges:true
     cap_drop:
@@ -21,3 +100,4 @@ services:
 
 volumes:
   bridge-data:
+  bridge-series-data:

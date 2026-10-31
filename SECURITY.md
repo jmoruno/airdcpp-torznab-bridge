@@ -1,19 +1,19 @@
-# Security policy
+# Seguridad
 
-## Supported versions
+## Versiones con soporte
 
-Security fixes are provided for the latest published v2 beta. The legacy v1 branch is preserved for rollback but is not supported for security fixes.
+Solo la última versión estable (canal `stable`).
 
-## Deployment
+## Despliegue
 
-- Do not expose the bridge or AirDC++ Web Client directly to the Internet.
-- Keep `ALLOW_INSECURE=false` and use long, unique values for all bridge and AirDC++ credentials.
-- Restrict host firewall access to the Radarr/Sonarr hosts or Docker networks that need it.
-- Keep `ALLOW_FILE_DELETE=false` unless remote deletion is explicitly required.
-- Treat Torznab URLs as secrets because they may contain the API key.
+- No expongas el bridge ni el AirDC++ Web Client directamente a Internet.
+- Deja `ALLOW_INSECURE=false` y usa contraseñas y claves largas y distintas para el bridge y para AirDC++.
+- Limita el acceso por firewall o red de Docker a los equipos de Radarr y Sonarr que lo necesitan.
+- Deja `ALLOW_FILE_DELETE=false` salvo que necesites que Arr borre ficheros.
+- Trata las URLs Torznab como secretas: pueden llevar la API key.
 
-The health endpoints intentionally require no authentication and disclose only status, version and the number of known hashes.
+Los endpoints de salud (`/health/*`) no piden autenticación. Solo muestran el estado, la versión y el número de hashes conocidos.
 
-## Reporting a vulnerability
+## Avisar de una vulnerabilidad
 
-Use GitHub's private vulnerability reporting feature for this repository. Do not open a public issue containing credentials, private hub addresses, file-list links or exploit details.
+Usa el aviso privado de vulnerabilidades de GitHub en este repositorio. No abras una incidencia pública con credenciales, direcciones de hubs, enlaces a listas de ficheros ni detalles del fallo.
