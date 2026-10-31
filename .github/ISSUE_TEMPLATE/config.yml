@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
   - name: Security vulnerability
-    url: https://github.com/Antaneyes/airdcpp-torznab-bridge/security/advisories/new
+    url: https://github.com/jmoruno/airdcpp-torznab-bridge/security/advisories/new
     about: Report vulnerabilities privately
