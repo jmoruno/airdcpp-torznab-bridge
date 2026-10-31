@@ -1,7 +1,7 @@
 services:
   airdcpp-bridge-movies:
     # Imagen publicada por GitHub Actions desde este repositorio
-    image: jmorunofdz/airdcpp-torznab-bridge:latest
+    image: jmorunofdz/airdcpp-torznab-bridge:stable
     container_name: airdcpp-bridge-movies
     environment:
       # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
@@ -48,7 +48,7 @@ services:
     restart: unless-stopped
 
   airdcpp-bridge-series:
-    image: jmorunofdz/airdcpp-torznab-bridge:latest
+    image: jmorunofdz/airdcpp-torznab-bridge:stable
     container_name: airdcpp-bridge-series
     environment:
       # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
