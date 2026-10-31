@@ -6,7 +6,7 @@ a partir de `v2.0.0-beta.4`, con nuestros arreglos encima (un commit por arreglo
 ## Desplegar en Unraid (Portainer)
 
 - Stack con `docker-compose.unraid.yml` (imagen `jmorunofdz/airdcpp-torznab-bridge:latest`, la publica GitHub Actions en cada push a `main`).
-- Variables del stack: las de `unraid.env.example` (`AIRDCPP_PASS`, `BRIDGE_API_KEY`, `BRIDGE_PASSWORD`, `TMDB_API_KEY`).
+- Variables del stack: las de `unraid.env.example` (secretos, URLs del bridge y de AirDC++).
 - Monta dos contenedores con la misma imagen: `airdcpp-bridge-movies` (8001) y `airdcpp-bridge-series` (8002).
 
 ## Traer versiones nuevas del original
