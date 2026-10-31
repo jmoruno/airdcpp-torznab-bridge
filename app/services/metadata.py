@@ -15,6 +15,7 @@ class MediaMetadata:
     original_language: str | None = None
     season_counts: dict = field(default_factory=dict)
     anime: bool = False
+    foreign_titles: list[str] = field(default_factory=list)
 
 
 class MetadataClient:
@@ -56,7 +57,8 @@ class MetadataClient:
             found.append(query)
         unique = list(dict.fromkeys(t.strip() for t in found if t and t.strip()))
         metadata = MediaMetadata(
-            unique, tmdb.localized_title, tmdb.original_title, tmdb.original_language, tmdb.season_counts, tmdb.anime
+            unique, tmdb.localized_title, tmdb.original_title, tmdb.original_language, tmdb.season_counts, tmdb.anime,
+            tmdb.foreign_titles,
         )
         self._cache[key] = metadata
         return metadata
@@ -105,7 +107,7 @@ class MetadataClient:
                 return MediaMetadata()
             response = await self.client.get(
                 f"https://api.themoviedb.org/3/{kind}/{item_id}",
-                params={"api_key": self.tmdb_api_key, "language": "es-ES", "append_to_response": "alternative_titles"},
+                params={"api_key": self.tmdb_api_key, "language": "es-ES", "append_to_response": "alternative_titles,translations"},
             )
             response.raise_for_status()
             data = response.json()
@@ -125,8 +127,19 @@ class MetadataClient:
             }
             genres = {int(value.get("id") or 0) for value in data.get("genres") or []}
             anime = kind == "tv" and data.get("original_language") == "ja" and 16 in genres
+            foreign = [original] + [
+                (v.get("title") or v.get("name"))
+                for v in alternatives
+                if v.get("iso_3166_1") not in {None, "ES"}
+            ]
+            for value in (data.get("translations") or {}).get("translations") or []:
+                if value.get("iso_639_1") == "es":
+                    continue
+                info = value.get("data") or {}
+                foreign.append(info.get("title") or info.get("name"))
             return MediaMetadata(
-                [t for t in titles if t], localized, original, data.get("original_language"), counts, anime
+                [t for t in titles if t], localized, original, data.get("original_language"), counts, anime,
+                [t for t in foreign if t],
             )
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("No se pudieron obtener metadatos de TMDB: %s", exc)

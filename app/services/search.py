@@ -352,7 +352,13 @@ class SearchService:
         }
         localized = normalize_text(metadata.localized_title or "")
         original = normalize_text(metadata.original_title or "")
-        localized_is_distinct = bool(localized and original and localized != original)
+        foreign = {normalize_text(t) for t in metadata.foreign_titles}
+        localized_is_distinct = bool(localized and original and localized != original and localized not in foreign)
+        other_language = re.compile(
+            r"\b(?:german|deutsch|ger|japanese|jap|jpn|french|francais|truefrench|vostfr|vff|fre|italian|italiano|ita"
+            r"|russian|rus|portuguese|portugues|korean|kor|chinese|mandarin|cantonese|polish|pol|dutch|swedish"
+            r"|danish|norwegian|finnish|nordic|czech|hungarian|turkish|hindi|thai|vietnamese|ukrainian|greek)\b"
+        )
         localized_words = localized.split()
 
         for result in results:
@@ -362,7 +368,8 @@ class SearchService:
                 words[index : index + len(localized_words)] == localized_words
                 for index in range(min(3, len(words) - len(localized_words) + 1))
             )
-            if localized_match and "Spanish" not in languages:
+            declares_other = bool(other_language.search(normalize_text(result.name)))
+            if localized_match and "Spanish" not in languages and not declares_other:
                 languages.append("Spanish")
             if localized_match and re.search(r"\bmulti\b", normalize_text(result.name)):
                 original_language = language_names.get(metadata.original_language or "")
