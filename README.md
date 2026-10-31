@@ -22,12 +22,14 @@ Es una versión propia de [Antaneyes/airdcpp-torznab-bridge](https://github.com/
 
 ## Imagen Docker
 
-```
-jmorunofdz/airdcpp-torznab-bridge:latest      # última versión de main
-jmorunofdz/airdcpp-torznab-bridge:sha-<commit> # versión concreta
-```
+| Etiqueta | Cuándo se publica | Para qué |
+| --- | --- | --- |
+| `latest` | Al publicar una versión | Producción |
+| `X.Y.Z` (p. ej. `2.0.0-beta.4-jm.1`) | Al publicar una versión | Fijar una versión concreta o volver atrás |
+| `<rama>` (p. ej. `dev`, `main`) | En cada push a esa rama | Probar cambios sin tocar producción |
+| `sha-<commit>` | En cada build | Una build exacta |
 
-La publica GitHub Actions en cada push a `main` (`linux/amd64`).
+Imagen: `jmorunofdz/airdcpp-torznab-bridge` (`linux/amd64`).
 
 ## Despliegue en Unraid / Portainer
 
@@ -47,7 +49,9 @@ curl http://IP-DEL-SERVIDOR:8001/health/ready
 curl http://IP-DEL-SERVIDOR:8002/health/ready
 ```
 
-**Actualizar:** en Portainer, *Update the stack* con *Re-pull image*.
+**Actualizar:** cuando haya versión nueva, en Portainer *Update the stack* con *Re-pull image*.
+
+**Probar una rama:** crea otro stack con la imagen `:dev` (u otra rama), otros puertos (p. ej. 8011/8012) y otros nombres de contenedor y volumen, para no tocar producción.
 
 **Datos:** cada contenedor guarda su base de datos SQLite en un volumen (`bridge-data`, `bridge-series-data`). Si cambias el nombre del stack, Docker crea volúmenes nuevos y se pierde la caché y el seguimiento de las descargas en curso.
 
@@ -195,7 +199,16 @@ python -m venv .venv
 docker build -t airdcpp-torznab-bridge:local .
 ```
 
-- Cada push a `main` publica la imagen en Docker Hub ([`.github/workflows/dockerhub.yml`](.github/workflows/dockerhub.yml)). Usa los secretos `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN`.
+Flujo de trabajo:
+
+1. Los cambios se hacen en una rama (`dev`, `fix/...`). Cada push publica `:<rama>`, que se prueba en un stack aparte.
+2. Cuando funciona, se fusiona en `main`.
+3. Para publicar una versión: **Actions → Imagen Docker → Run workflow**, rama `main`, con el número de versión (p. ej. `2.0.0-beta.4-jm.2`). Crea la etiqueta `vX.Y.Z` y la release en GitHub con las notas de cambios, y publica `:X.Y.Z` y `:latest`.
+
+El workflow es [`.github/workflows/docker.yml`](.github/workflows/docker.yml) y usa los secretos `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN`.
+
+Versiones: `2.0.0-beta.4-jm.N`, es decir, la versión del original de la que parte más un número propio.
+
 - Para traer una versión nueva del original:
 
 ```bash

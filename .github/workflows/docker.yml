@@ -1,0 +1,72 @@
+name: Imagen Docker
+
+# Ramas: publica :<rama> y :sha-<commit> para probar.
+# Version: Actions > Imagen Docker > Run workflow (rama main) con "version" (p. ej. 2.0.0-beta.4-jm.2)
+#          -> etiqueta vX.Y.Z, release en GitHub e imagen :X.Y.Z y :latest.
+on:
+  push:
+    branches: ["**"]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version a publicar (p. ej. 2.0.0-beta.4-jm.2). Vacio = solo construir la rama"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/airdcpp-torznab-bridge
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Comprobar version
+        if: env.VERSION != ''
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || { echo "::error::Version no valida: $VERSION"; exit 1; }
+          [ "$GITHUB_REF_NAME" = main ] || { echo "::error::Las versiones solo se publican desde main"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null; then echo "::error::v$VERSION ya existe"; exit 1; fi
+
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ env.VERSION }},enable=${{ env.VERSION != '' }}
+            type=raw,value=latest,enable=${{ env.VERSION != '' }}
+            type=ref,event=branch,enable=${{ env.VERSION == '' }}
+            type=sha
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Crear etiqueta y release
+        if: env.VERSION != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
+            --notes "Imagen: \`docker pull $IMAGE:$VERSION\`"
