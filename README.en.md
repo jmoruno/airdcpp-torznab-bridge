@@ -95,6 +95,31 @@ If Radarr or Sonarr see the downloads folder under a different path than AirDC++
 - **Remote:** `SAVE_PATH`.
 - **Local:** the path mounted in Radarr or Sonarr.
 
+### Profiles and custom formats
+
+Without this, Radarr and Sonarr grab releases in other languages or full Bluray discs (`BDMV` folders, `.iso`), which cannot be played or imported properly. The formats are ready to import from [`arr/`](arr): in Radarr or Sonarr, **Settings → Custom Formats → +** → **Import** and paste the JSON. The examples are for Spanish; see the end of this section for English.
+
+**Radarr** (profiles have a language):
+
+| Setting | Value |
+| --- | --- |
+| Profile → Language | **Spanish** (or **English**) |
+| [`Bluray`](arr/radarr/bluray.json) format | **−10000**: blocks discs only (`bdmv`, `m2ts`, `iso`, `bd25/50/66/100`, `full disc`, `complete`). Remuxes and rips (`BDRip`, `BluRay x264`) are allowed |
+| Minimum score | `0` |
+
+**Sonarr** (v4 has no profile language, so it is all custom formats):
+
+| Format | Score | Matches |
+| --- | --- | --- |
+| [`Español (idioma)`](arr/sonarr/espanol-idioma.json) | **+100** | Detected language Spanish (sent by the bridge) |
+| [`Español (título)`](arr/sonarr/espanol-titulo.json) | **+100** | Name contains `castellano`, `spanish`, `español`, `dual`, `multi`, `temporada`, `cap`… |
+| [`Bluray`](arr/sonarr/bluray.json) | **−10000** | Discs. Unlike Radarr it uses `complete.?blu.?ray` instead of `complete`, because for TV "COMPLETE" also marks regular season packs |
+| **Profile minimum score** | **100** | Anything without Spanish is rejected |
+
+> Copy the expressions from the JSON exactly: a leading space (`"   \b(…"`) makes them never match, with no error shown.
+
+For English hubs: set the Radarr profile language to **English**, in Sonarr replace `Español (idioma)` with your language (or remove it along with the minimum score) and set `TMDB_LANGUAGE=en-US` in the bridge.
+
 ## Environment variables
 
 ### Required
@@ -196,6 +221,7 @@ The Arr indexer test, which carries no query, returns a validation result that c
 | Searches are slow | AirDC++ enforces several seconds between searches. Each variant waits up to `SEARCH_TIMEOUT` after leaving the queue |
 | Found but the download fails | The source went offline. Raise `DOWNLOAD_SEARCH_TIMEOUT` or try another result |
 | Full seasons are missing | Raise `SEASON_INSPECT_MAX` and `SEASON_INSPECT_TIMEOUT` |
+| Other-language releases or Bluray discs are grabbed | The [custom formats](#profiles-and-custom-formats) or the Sonarr minimum score are missing |
 | Radarr says "Unknown Movie" | The name lacks a title Radarr knows. Check the alternative titles in Radarr |
 | Wrong language detected | Without `TMDB_API_KEY` the localized title and original language are unknown. Check `TMDB_LANGUAGE` |
 | Downloads go to another client | The indexer is not linked to its download client in Arr |

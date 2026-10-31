@@ -1,0 +1,15 @@
+{
+  "name": "Bluray",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Bluray",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(bdmv|m2ts|iso|bdiso|bd(25|50|66|100)|bd.?full|full.?bd|full.?disc|br.?disk|complete.?blu.?ray)\\b"
+      }
+    }
+  ]
+}

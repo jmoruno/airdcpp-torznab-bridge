@@ -95,6 +95,31 @@ Si Radarr o Sonarr ven la carpeta de descargas con otra ruta que AirDC++, añade
 - **Remote:** `SAVE_PATH`.
 - **Local:** la ruta montada en Radarr o Sonarr.
 
+### Perfiles y formatos personalizados en español
+
+Sin esto, Radarr y Sonarr cogen versiones en otros idiomas o discos Bluray completos (carpetas `BDMV`, `.iso`), que no se pueden reproducir ni importar bien. Los formatos están listos para importar en [`arr/`](arr): en Radarr o Sonarr, **Ajustes → Formatos personalizados → +** → **Importar** y pega el JSON.
+
+**Radarr** (el perfil sí tiene idioma):
+
+| Ajuste | Valor |
+| --- | --- |
+| Perfil → Idioma | **Spanish** |
+| Formato [`Bluray`](arr/radarr/bluray.json) | **−10000**: bloquea solo discos (`bdmv`, `m2ts`, `iso`, `bd25/50/66/100`, `full disc`, `complete`). Remux y rips (`BDRip`, `BluRay x264`) sí pasan |
+| Puntuación mínima | `0` |
+
+**Sonarr** (v4 no tiene idioma en el perfil, todo va con formatos):
+
+| Formato | Puntuación | Qué detecta |
+| --- | --- | --- |
+| [`Español (idioma)`](arr/sonarr/espanol-idioma.json) | **+100** | Idioma detectado Spanish (el bridge lo envía) |
+| [`Español (título)`](arr/sonarr/espanol-titulo.json) | **+100** | El nombre dice `castellano`, `spanish`, `español`, `dual`, `multi`, `temporada`, `cap`… |
+| [`Bluray`](arr/sonarr/bluray.json) | **−10000** | Discos. A diferencia de Radarr usa `complete.?blu.?ray` en vez de `complete`, porque en series "COMPLETE" también marca packs de temporada normales |
+| **Puntuación mínima del perfil** | **100** | Sin algo en español, se rechaza |
+
+> Copia las expresiones del JSON tal cual: un espacio al principio (`"   \b(…"`) hace que no coincidan nunca y no da ningún error.
+
+Para hubs en inglés: pon el idioma del perfil de Radarr en **English**, en Sonarr cambia `Español (idioma)` por el idioma que quieras (o quítalo junto con la puntuación mínima) y usa `TMDB_LANGUAGE=en-US` en el bridge.
+
 ## Variables de entorno
 
 ### Obligatorias
@@ -196,6 +221,7 @@ El test del indexador en Arr, que no lleva búsqueda, devuelve un resultado de v
 | Las búsquedas tardan mucho | AirDC++ deja varios segundos entre búsquedas. Cada variante espera hasta `SEARCH_TIMEOUT` desde que sale de la cola |
 | Encuentra pero falla al descargar | La fuente se desconectó. Sube `DOWNLOAD_SEARCH_TIMEOUT` o prueba con otro resultado |
 | Faltan temporadas completas | Sube `SEASON_INSPECT_MAX` y `SEASON_INSPECT_TIMEOUT` |
+| Se descargan versiones en otro idioma o discos Bluray | Faltan los [formatos personalizados](#perfiles-y-formatos-personalizados-en-español) o la puntuación mínima en Sonarr |
 | Radarr dice "Unknown Movie" | El nombre no lleva el título que conoce Radarr. Revisa los títulos alternativos en Radarr |
 | Idioma mal detectado | Sin `TMDB_API_KEY` no se conocen el título español ni el idioma original |
 | Lo descargado va a otro cliente | El indexador no está asociado a su cliente de descarga en Arr |

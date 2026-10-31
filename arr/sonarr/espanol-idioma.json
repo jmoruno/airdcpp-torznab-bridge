@@ -1,0 +1,16 @@
+{
+  "name": "Español (idioma)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Español",
+      "implementation": "LanguageSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": 3,
+        "exceptLanguage": false
+      }
+    }
+  ]
+}

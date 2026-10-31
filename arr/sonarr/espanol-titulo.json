@@ -1,0 +1,15 @@
+{
+  "name": "Español (título)",
+  "includeCustomFormatWhenRenaming": false,
+  "specifications": [
+    {
+      "name": "Español (título)",
+      "implementation": "ReleaseTitleSpecification",
+      "negate": false,
+      "required": false,
+      "fields": {
+        "value": "\\b(castellano|spanish|espa[ñn]ol|esp|spa|es|cast|dual|multi|temporada|capitulo|cap)\\b"
+      }
+    }
+  ]
+}
