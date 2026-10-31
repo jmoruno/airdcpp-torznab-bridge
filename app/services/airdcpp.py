@@ -337,7 +337,7 @@ class AirDCClient:
             if len(candidates) >= self.settings.season_inspect_max:
                 break
 
-        semaphore = asyncio.Semaphore(3)
+        semaphore = asyncio.Semaphore(6)
 
         async def inspect(item: dict) -> dict | None:
             async with semaphore:
@@ -447,7 +447,7 @@ class AirDCClient:
                         selected_files.append({"name": name, "size": size, "tth": tth})
                 selected = target or folder
                 suffix = self._common_technical_suffix([str(value.get("name") or "") for value in videos])
-                display = f"{folder.get('name') or query} S{season:02d}" + (f" {suffix}" if suffix else "")
+                display = f"{folder.get('name') or query} S{season:02d}" + (f" {target.get('name')}" if target and target.get('name') else "") + (f" {suffix}" if suffix else "")
                 return {
                     **selected,
                     "id": f"filelist:{cid}:{target_path}",
