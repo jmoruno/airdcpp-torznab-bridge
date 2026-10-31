@@ -4,6 +4,20 @@ Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión 
 
 Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
+## [2.2.0] - 2026-10-31
+
+### Añadido
+
+- `TMDB_LANGUAGE`: idioma de los títulos de TMDB (`es-ES` por defecto, `en-US`, `fr-FR`…). El idioma que se deduce por el título sigue a esta variable.
+- README en inglés.
+- Análisis de seguridad con CodeQL y Trivy en cada push y cada semana.
+
+### Corregido
+
+- Los errores de AirDC++ ya no se devuelven tal cual en las respuestas HTTP; se registran en el log.
+- Los identificadores que llegan a `torrents/add` se validan antes de usarlos o registrarlos.
+- La detección de anime (`"Título 61"`) ya no usa una expresión regular que podía ser lenta con textos manipulados.
+
 ## [2.1.1] - 2026-10-31
 
 ### Corregido

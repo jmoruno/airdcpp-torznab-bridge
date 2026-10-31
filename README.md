@@ -3,6 +3,8 @@
 [![Build](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/docker.yml/badge.svg?branch=main)](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/docker.yml) [![CodeQL](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/codeql.yml) [![Trivy](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/trivy.yml/badge.svg?branch=main)](https://github.com/jmoruno/airdcpp-torznab-bridge/actions/workflows/trivy.yml) [![Release](https://img.shields.io/github/v/release/jmoruno/airdcpp-torznab-bridge)](https://github.com/jmoruno/airdcpp-torznab-bridge/releases/latest) [![Docker pulls](https://img.shields.io/docker/pulls/jmorunofdz/airdcpp-torznab-bridge)](https://hub.docker.com/r/jmorunofdz/airdcpp-torznab-bridge) [![Image size](https://img.shields.io/docker/image-size/jmorunofdz/airdcpp-torznab-bridge/stable)](https://hub.docker.com/r/jmorunofdz/airdcpp-torznab-bridge) [![License](https://img.shields.io/github/license/jmoruno/airdcpp-torznab-bridge)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jmoruno)
 
+**Español** · [English](README.en.md)
+
 Puente entre **Radarr / Sonarr** y los hubs de **AirDC++**:
 
 - **Indexador Torznab**: Radarr y Sonarr buscan en los hubs como si fuera un tracker.
@@ -169,6 +171,7 @@ Cada cambio es un commit propio sobre `v2.0.0-beta.4`. Para verlos: `git log v2.
 - Ya no marca una versión como "Spanish" solo porque empieza por el título en español, si ese título es igual en otros idiomas (por ejemplo *Dolls*). Tampoco lo hace si el nombre declara otro idioma (German, Japanese, VOSTFR, ITA…).
 - `Título (Alternativo) (Año)` se envía como `Título (Año) (Alternativo)` para que Radarr y Sonarr lo emparejen con la película. Ejemplo: *Dolls (Marionetas) (2002)*.
 - Si el nombre del fichero no dice la resolución, la toma de la carpeta de AirDC++ (`…/Serie [4K]/cap.mkv`) y la añade como atributo Torznab.
+- Idioma de TMDB configurable (`TMDB_LANGUAGE`).
 
 **Para el addon**
 - `&partial=1` en Torznab devuelve lo encontrado hasta el momento sin esperar a que termine la búsqueda.
