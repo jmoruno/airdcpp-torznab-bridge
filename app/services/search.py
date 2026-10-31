@@ -29,6 +29,8 @@ class SearchService:
         self.repository = repository
         self.cache = cache
         self.settings = settings
+        # Lo encontrado por cada busqueda en curso (o ya terminada) para poder ensenarlo antes de acabar
+        self.progress: dict[str, tuple[dict, object]] = {}
 
     async def search(
         self,
@@ -41,13 +43,7 @@ class SearchService:
         episode: int | None,
         absolute: int | None = None,
     ) -> list[SearchResult]:
-        category_family = (category or "").split(",", maxsplit=1)[0][:1]
-        if query:
-            # Radarr puede repetir la misma búsqueda variando los IDs externos.
-            # Compartir la entrada evita relanzar una consulta idéntica al hub.
-            key = "|".join(str(value or "") for value in (normalize_text(query), category_family, season, episode, absolute))
-        else:
-            key = "|".join(str(value or "") for value in (category_family, imdb_id, tmdb_id, tvdb_id, season, episode, absolute))
+        key = self._search_key(query, category, imdb_id, tmdb_id, tvdb_id, season, episode, absolute)
 
         async def perform() -> list[SearchResult]:
             nonlocal absolute
@@ -83,6 +79,9 @@ class SearchService:
             max_variants = self.settings.search_max_variants * max(1, len(per_title))
             year = year_match.group(1) if year_match else None
             collected: dict[str, SearchResult] = {}
+            self.progress[key] = (collected, metadata)
+            while len(self.progress) > 300:
+                self.progress.pop(next(iter(self.progress)))
             for position, variant in enumerate(variants[:max_variants], start=1):
                 raw = await self.airdcpp.search(
                     [variant], season if episode is None and absolute is None else None, VIDEO_EXTENSIONS
@@ -92,6 +91,11 @@ class SearchService:
                 for result in filtered:
                     if result.release_id in collected:
                         duplicates += 1
+                    else:
+                        # Guardado ya para poder reproducirlo/descargarlo antes de que acabe la busqueda
+                        await self.repository.save_release(result)
+                        if result.tth:
+                            await self.repository.save_hash(result.tth, result.release_id)
                     collected[result.release_id] = result
                 # En capitulos solo cuentan los que empiezan por el titulo: "Ultimate Spiderman" no vale para "Spiderman"
                 if (season is not None and episode is not None) or absolute is not None:
@@ -130,6 +134,25 @@ class SearchService:
             return results
 
         return await self.cache.get_or_create(key, perform)
+
+    @staticmethod
+    def _search_key(query, category, imdb_id, tmdb_id, tvdb_id, season, episode, absolute) -> str:
+        category_family = (category or "").split(",", maxsplit=1)[0][:1]
+        if query:
+            # Radarr puede repetir la misma búsqueda variando los IDs externos.
+            # Compartir la entrada evita relanzar una consulta idéntica al hub.
+            return "|".join(str(value or "") for value in (normalize_text(query), category_family, season, episode, absolute))
+        return "|".join(str(value or "") for value in (category_family, imdb_id, tmdb_id, tvdb_id, season, episode, absolute))
+
+    def peek(self, query, category, imdb_id, tmdb_id, tvdb_id, season, episode, absolute=None) -> list[SearchResult]:
+        """Lo encontrado hasta ahora por la misma busqueda (vacio si aun no ha empezado)."""
+        found, metadata = self.progress.get(
+            self._search_key(query, category, imdb_id, tmdb_id, tvdb_id, season, episode, absolute), ({}, None)
+        )
+        results = list(found.values())
+        if metadata is not None:
+            self._infer_languages(results, metadata)
+        return results
 
     @classmethod
     def _filter_episode_or_absolute(cls, results, titles, year, season, episode, media_type, absolute):

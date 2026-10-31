@@ -24,6 +24,7 @@ async def torznab(
     season: Annotated[int | None, Query(ge=0)] = None,
     ep: Annotated[int | None, Query(ge=0)] = None,
     absolute: Annotated[int | None, Query(ge=1)] = None,
+    partial: bool = False,
     apikey: str = "",
 ) -> Response:
     settings = request.app.state.settings
@@ -50,9 +51,12 @@ async def torznab(
             anime = re.fullmatch(r"(.+?)\s+(\d{1,4})", q.strip())
             if anime and not re.search(r"\b(?:19|20)\d{2}\s+\d{1,2}\s+\d{1,2}$", q.strip()):
                 q, absolute = anime.group(1), int(anime.group(2))
-        results = await request.app.state.search_service.search(
-            q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=absolute
-        )
+        if partial:
+            results = request.app.state.search_service.peek(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute)
+        else:
+            results = await request.app.state.search_service.search(
+                q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=absolute
+            )
         base_url = settings.public_url or str(request.base_url).rstrip("/")
         xml = feed_xml(
             results,
