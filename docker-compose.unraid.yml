@@ -1,11 +1,7 @@
 services:
   airdcpp-bridge-movies:
-    # Se construye desde este repositorio (original de Antaneyes 2.0.0-beta.4 + nuestros arreglos, ver git log)
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: local/airdcpp-torznab-bridge:jmoruno
-    pull_policy: build
+    # Imagen publicada por GitHub Actions desde este repositorio
+    image: jmorunofdz/airdcpp-torznab-bridge:latest
     container_name: airdcpp-bridge-movies
     environment:
       # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
@@ -52,11 +48,7 @@ services:
     restart: unless-stopped
 
   airdcpp-bridge-series:
-    # Misma imagen que construye airdcpp-bridge-movies
-    image: local/airdcpp-torznab-bridge:jmoruno
-    pull_policy: never
-    depends_on:
-      - airdcpp-bridge-movies
+    image: jmorunofdz/airdcpp-torznab-bridge:latest
     container_name: airdcpp-bridge-series
     environment:
       # --- Tu AirDC++ (puerto HTTP publicado en el host: 54345 -> 5600) ---
