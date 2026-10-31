@@ -639,7 +639,10 @@ class AirDCClient:
                     headers=self.headers,
                 )
                 response.raise_for_status()
-                return str(response.json()["bundle_info"]["id"])
+                data = response.json()
+                if "bundle_info" in data:
+                    return str(data["bundle_info"]["id"])
+                return await self._wait_directory_bundle(data, str(selected.get("name") or release.name))
             except (httpx.HTTPError, KeyError, ValueError) as exc:
                 raise AirDCError(f"No se pudo iniciar la descarga: {exc}") from exc
             finally:
@@ -650,6 +653,43 @@ class AirDCClient:
                         )
                     except httpx.HTTPError:
                         pass
+
+    async def _wait_directory_bundle(self, data: dict, name: str) -> str:
+        """AirDC++ baja primero la lista de la carpeta y despues crea el bundle: se espera a ese bundle."""
+        ids = [str(item.get("id")) for item in (data.get("directory_download_ids") or []) if item.get("id") is not None]
+        if not ids:
+            raise AirDCError("AirDC++ no devolvio la descarga de la carpeta")
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            for download_id in ids:
+                current = await self.http.get(
+                    f"{self.settings.airdcpp_url}/api/v1/filelists/directory_downloads/{download_id}",
+                    headers=self.headers,
+                )
+                if current.status_code == 404:
+                    continue
+                current.raise_for_status()
+                info = current.json()
+                bundle = (info.get("queue_info") or {}).get("bundle") or {}
+                if bundle.get("id") is not None:
+                    return str(bundle["id"])
+                if info.get("state") == "failed":
+                    raise AirDCError(str(info.get("error") or "AirDC++ rechazo la carpeta"))
+            # Si la descarga de carpeta ya no esta en la lista, el bundle se ha creado: se busca por nombre
+            for bundle in await self.bundles():
+                if bundle.get("name") == name:
+                    return str(bundle["id"])
+            await asyncio.sleep(1)
+        # No se llego a crear: se cancela para que no se descargue por su cuenta sin que Radarr lo sepa
+        for download_id in ids:
+            try:
+                await self.http.delete(
+                    f"{self.settings.airdcpp_url}/api/v1/filelists/directory_downloads/{download_id}",
+                    headers=self.headers,
+                )
+            except httpx.HTTPError:
+                pass
+        raise AirDCError("AirDC++ no termino de preparar la carpeta a tiempo")
 
     async def remove_bundle(self, bundle_id: str, delete_files: bool = False) -> None:
         # La API de AirDC++ retira la entrada de la cola. El bridge nunca borra el path directamente.
