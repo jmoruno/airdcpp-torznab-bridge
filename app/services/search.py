@@ -57,10 +57,15 @@ class SearchService:
             year_match = re.search(r"(?:\s|\()(\d{4})(?:\)|$)", query or "")
             variants = search_variants(titles, year_match.group(1) if year_match and media_type == "movie" else None)
             if season is not None and episode is not None:
-                variants = [f"{variant} S{season:02d}E{episode:02d}" for variant in variants]
+                variants = [
+                    query
+                    for variant in variants
+                    for query in (f"{variant} S{season:02d}E{episode:02d}", f"{variant} {season}x{episode:02d}")
+                ]
+            max_variants = self.settings.search_max_variants * (2 if season is not None and episode is not None else 1)
             year = year_match.group(1) if year_match else None
             collected: dict[str, SearchResult] = {}
-            for position, variant in enumerate(variants[: self.settings.search_max_variants], start=1):
+            for position, variant in enumerate(variants[:max_variants], start=1):
                 raw = await self.airdcpp.search([variant], season if episode is None else None, VIDEO_EXTENSIONS)
                 filtered = self._filter_and_rank(raw, titles, year, season, episode, media_type)
                 duplicates = 0
@@ -68,11 +73,16 @@ class SearchService:
                     if result.release_id in collected:
                         duplicates += 1
                     collected[result.release_id] = result
-                enough = len(collected) >= self.settings.search_min_accepted_results
+                # En capitulos solo cuentan los que empiezan por el titulo: "Ultimate Spiderman" no vale para "Spiderman"
+                if season is not None and episode is not None:
+                    found = sum(1 for value in collected.values() if self._title_first(value.name, titles))
+                else:
+                    found = len(collected)
+                enough = found >= self.settings.search_min_accepted_results
                 logger.info(
                     "Variante %d/%d query=%r raw=%d validos=%d duplicados=%d acumulados=%d decision=%s",
                     position,
-                    min(len(variants), self.settings.search_max_variants),
+                    min(len(variants), max_variants),
                     variant,
                     len(raw),
                     len(filtered),
@@ -100,6 +110,15 @@ class SearchService:
             return results
 
         return await self.cache.get_or_create(key, perform)
+
+    @staticmethod
+    def _title_first(name: str, titles: list[str]) -> bool:
+        words = normalize_text(name.replace("_", " ")).split()
+        aliases = [normalize_text(clean_search_pattern(title)) for title in titles] + [
+            normalize_text(root) for root in title_roots(titles)
+        ]
+        aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in aliases]
+        return any(alias and words[: len(alias.split())] == alias.split() for alias in aliases)
 
     @staticmethod
     def _filter_and_rank(
@@ -132,7 +151,7 @@ class SearchService:
             ):
                 rejected["size"] += 1
                 continue
-            words = normalize_text(result.name).split()
+            words = normalize_text(result.name.replace("_", " ")).split()
             matches: list[tuple[int, bool]] = []
             for alias in full_aliases + root_aliases:
                 phrase = alias.split()
