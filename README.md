@@ -1,13 +1,13 @@
-# AirDC++ Torznab Bridge (jmoruno)
+# AirDC++ Torznab Bridge
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-jmoruno-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jmoruno)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/jmoruno)
 
 Puente entre **Radarr / Sonarr** y los hubs de **AirDC++**:
 
 - **Indexador Torznab**: Radarr y Sonarr buscan en los hubs como si fuera un tracker.
 - **Cliente de descarga compatible con qBittorrent**: lanzan la descarga en AirDC++ y siguen su progreso.
 
-Es una versión propia de [Antaneyes/airdcpp-torznab-bridge](https://github.com/Antaneyes/airdcpp-torznab-bridge) `v2.0.0-beta.4` con arreglos para hubs españoles, anime y el addon [airdcpp-stream](https://github.com/jmoruno/airdcpp-stream). Licencia [GPL-3.0](LICENSE), igual que el original.
+Es una versión propia de [Antaneyes/airdcpp-torznab-bridge](https://github.com/Antaneyes/airdcpp-torznab-bridge), basada en su `v2.0.0-beta.4`, con arreglos para hubs españoles, anime y el addon [airdcpp-stream](https://github.com/jmoruno/airdcpp-stream). Licencia [GPL-3.0](LICENSE), igual que el original.
 
 > Úsalo solo dentro de tu red. No lo expongas directamente a Internet.
 
@@ -26,12 +26,13 @@ Es una versión propia de [Antaneyes/airdcpp-torznab-bridge](https://github.com/
 
 ## Imagen Docker
 
-| Etiqueta | Cuándo se publica | Para qué |
+| Etiqueta | Canal | Para qué |
 | --- | --- | --- |
-| `latest` | Al publicar una versión | Producción |
-| `X.Y.Z` (p. ej. `2.0.0-beta.4-jm.1`) | Al publicar una versión | Fijar una versión concreta o volver atrás |
-| `<rama>` (p. ej. `dev`, `main`) | En cada push a esa rama | Probar cambios sin tocar producción |
-| `sha-<commit>` | En cada build | Una build exacta |
+| `stable` / `latest` | estable | Producción: última versión estable |
+| `X.Y` / `X.Y.Z` (p. ej. `2.1.0`) | estable | Fijar una versión concreta o volver atrás |
+| `beta` / `X.Y.Z-rc.N` | beta | Versiones candidatas, antes de pasar a estable |
+| `dev` y otras ramas | desarrollo | Probar cambios sin tocar producción |
+| `sha-<commit>` | — | Una build exacta |
 
 Imagen: `jmorunofdz/airdcpp-torznab-bridge` (`linux/amd64`).
 
@@ -207,11 +208,13 @@ Flujo de trabajo:
 
 1. Los cambios se hacen en una rama (`dev`, `fix/...`). Cada push publica `:<rama>`, que se prueba en un stack aparte.
 2. Cuando funciona, se fusiona en `main`.
-3. Para publicar una versión: **Actions → Imagen Docker → Run workflow**, rama `main`, con el número de versión (p. ej. `2.0.0-beta.4-jm.2`). Crea la etiqueta `vX.Y.Z` y la release en GitHub con las notas de cambios, y publica `:X.Y.Z` y `:latest`.
+3. Para publicar una versión: **Actions → Imagen Docker → Run workflow**, rama `main`, con el número de versión.
+   - **Estable** (`2.2.0`): release en GitHub y `:2.2.0`, `:2.2`, `:stable` y `:latest`.
+   - **Beta** (`2.2.0-rc.1`): pre-release en GitHub y `:2.2.0-rc.1` y `:beta`. No toca `stable` ni `latest`.
 
 El workflow es [`.github/workflows/docker.yml`](.github/workflows/docker.yml) y usa los secretos `DOCKERHUB_USERNAME` y `DOCKERHUB_TOKEN`.
 
-Versiones: `2.0.0-beta.4-jm.N`, es decir, la versión del original de la que parte más un número propio.
+Versiones propias con [SemVer](https://semver.org/lang/es/): la `2.1.0` es la `2.0.0-beta.4` del original más los cambios de esta versión.
 
 - Para traer una versión nueva del original:
 

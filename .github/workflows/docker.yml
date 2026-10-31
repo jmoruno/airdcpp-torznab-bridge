@@ -1,8 +1,9 @@
 name: Imagen Docker
 
 # Ramas: publica :<rama> y :sha-<commit> para probar.
-# Version: Actions > Imagen Docker > Run workflow (rama main) con "version" (p. ej. 2.0.0-beta.4-jm.2)
-#          -> etiqueta vX.Y.Z, release en GitHub e imagen :X.Y.Z y :latest.
+# Version estable X.Y.Z    -> :X.Y.Z :X.Y :stable :latest y release.
+# Version beta X.Y.Z-rc.N  -> :X.Y.Z-rc.N :beta y pre-release.
+# Se lanza en Actions > Imagen Docker > Run workflow (rama main) con "version" (p. ej. 2.1.0)
 on:
   push:
     branches: ["**"]
@@ -10,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version a publicar (p. ej. 2.0.0-beta.4-jm.2). Vacio = solo construir la rama"
+        description: "Version a publicar (p. ej. 2.1.0). Vacio = solo construir la rama"
         required: false
         default: ""
 
@@ -49,7 +50,10 @@ jobs:
           images: ${{ env.IMAGE }}
           tags: |
             type=raw,value=${{ env.VERSION }},enable=${{ env.VERSION != '' }}
-            type=raw,value=latest,enable=${{ env.VERSION != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.VERSION }},enable=${{ env.VERSION != '' && !contains(env.VERSION, '-') }}
+            type=raw,value=stable,enable=${{ env.VERSION != '' && !contains(env.VERSION, '-') }}
+            type=raw,value=latest,enable=${{ env.VERSION != '' && !contains(env.VERSION, '-') }}
+            type=raw,value=beta,enable=${{ contains(env.VERSION, '-') }}
             type=ref,event=branch,enable=${{ env.VERSION == '' }}
             type=sha
 
@@ -68,5 +72,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes \
-            --notes "Imagen: \`docker pull $IMAGE:$VERSION\`"
+          if [[ "$VERSION" == *-* ]]; then canal=beta; extra=--prerelease; else canal=stable; extra=--latest; fi
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes $extra \
+            --notes "Imagen: \`docker pull $IMAGE:$VERSION\` (canal \`$canal\`)"
