@@ -337,6 +337,24 @@ class SearchService:
                 kept[duplicate_index] = candidate
         return kept
 
+    _ALT_BEFORE_YEAR = re.compile(
+        r"^(?P<title>[^()\[\]{}]*?[^\s()\[\]{}])\s*\((?P<alt>[^()\[\]{}]*[^\W\d_][^()\[\]{}]*)\)\s*"
+        r"(?P<year>\((?:19|20)\d{2}\)|\[(?:19|20)\d{2}\]|(?:19|20)\d{2}(?![0-9]))"
+    )
+
+    @classmethod
+    def _arr_title(cls, name: str, known: set[str]) -> str | None:
+        match = cls._ALT_BEFORE_YEAR.match(name)
+        if not match:
+            return None
+        title, alt = match.group("title"), match.group("alt").strip()
+        if re.fullmatch(r"[A-Z]{2,3}", alt):
+            return None
+        if normalize_text(title) not in known or normalize_text(f"{title} {alt}") in known:
+            return None
+        year = match.group("year").strip("()[]")
+        return f"{title} ({year}) ({alt})" + name[match.end():]
+
     @staticmethod
     def _infer_languages(results: list[SearchResult], metadata: MediaMetadata) -> None:
         language_names = {
@@ -376,3 +394,8 @@ class SearchService:
                 if original_language and original_language not in languages:
                     languages.append(original_language)
             result.languages = languages
+            known = {normalize_text(t) for t in metadata.titles if t}
+            renamed = SearchService._arr_title(result.name, known)
+            if renamed:
+                result.source_name = result.source_name or result.name
+                result.name = renamed
