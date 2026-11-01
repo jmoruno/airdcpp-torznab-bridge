@@ -4,6 +4,13 @@ Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión 
 
 Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
+## [2.2.2] - 2026-11-01
+
+### Corregido
+
+- Carpetas de anime con numeración absoluta (`Monster - 01 [1080p].mkv`, sin `S01E01`) se aceptan como temporada 1 si los capítulos van seguidos desde el 1 y no pasan de los que tiene esa temporada.
+- `Cast` dentro de una lista de idiomas entre corchetes (`[Cast+Jap+Subs]`, `[Cast-Jap]`) cuenta como castellano, y la carpeta sale con `SPANISH` para que Sonarr la puntúe.
+
 ## [2.2.1] - 2026-11-01
 
 ### Corregido

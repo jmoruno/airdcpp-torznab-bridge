@@ -39,3 +39,22 @@ def test_normalization_and_variants():
     assert detect_languages("Movie [CastellanoInglés EAC3 5.1]") == ["Spanish", "English"]
     assert detect_languages("The Cast (2024) 1080p") == []
     assert detect_languages("Ingmar Bergman Collection") == []
+
+
+def test_cast_in_language_brackets_is_spanish():
+    from app.utils.text import detect_languages
+
+    assert detect_languages("Monster - 01 [1080p][Cast++Jap+Subs].mkv") == ["Spanish"]
+    assert detect_languages("Serie [Cast-Jap]") == ["Spanish"]
+    assert "Spanish" not in detect_languages("The Cast of Friends")
+    assert "Spanish" not in detect_languages("Serie [Lat]")
+
+
+def test_absolute_episode_after_title():
+    from app.utils.text import absolute_episode
+
+    assert absolute_episode("Monster - 01 [1080p][Cast++Jap+Subs].mkv", "Monster") == 1
+    assert absolute_episode("[Grupo] Monster 2004 E07.mkv", "Monster") == 7
+    assert absolute_episode("Monster Extras.mkv", "Monster") is None
+    assert absolute_episode("Monster - 00.mkv", "Monster") is None
+    assert absolute_episode("Otra - 01.mkv", "Monster") is None

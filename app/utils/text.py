@@ -86,6 +86,25 @@ def episode_marker(value: str) -> tuple[int, int] | None:
     return int(match.group(1)), int(match.group(2))
 
 
+def absolute_episode(name: str, title: str) -> int | None:
+    """Numero de capitulo tras el titulo: "Monster - 01 [1080p].mkv" -> 1, "[Grupo] Monster 2004 E07" -> 7."""
+    stem = re.sub(r"\.[a-z0-9]{2,4}$", "", name, flags=re.I)
+    words = normalize_text(re.sub(r"[\[({][^\])}]*[\])}]", " ", stem).replace("_", " ")).split()
+    phrase = normalize_text(title).split()
+    if not phrase:
+        return None
+    for index in range(min(3, len(words))):
+        if words[index : index + len(phrase)] != phrase:
+            continue
+        for word in words[index + len(phrase) : index + len(phrase) + 4]:
+            if re.fullmatch(r"(?:19|20)\d{2}", word) or word in {"ep", "e", "episodio", "episode", "cap", "capitulo"}:
+                continue
+            match = re.fullmatch(r"(?:ep?|cap)?0*(\d{1,4})", word)
+            return int(match.group(1)) if match and int(match.group(1)) > 0 else None
+        return None
+    return None
+
+
 def detect_languages(value: str) -> list[str]:
     """Detecta solo idiomas declarados; evita inferirlos por el nombre del grupo."""
     normalized = normalize_text(value)
@@ -116,11 +135,15 @@ def detect_languages(value: str) -> list[str]:
         technical = bool(
             re.search(r"\b(?:audio|subs?|ac3|eac3|dts|aac|opus|truehd|flac|mp3|\d[._ ]\d)\b", normalized_block)
         )
-        language_list = bool(tokens) and all(token in {"es", "en"} for token in tokens)
+        # "[Cast+Jap+Subs]", "[ES-EN]", "[Cast]": listas de idiomas entre corchetes
+        language_words = {"es", "en", "cast", "esp", "spa", "ing", "eng", "jap", "jp", "ja", "lat", "vo", "vose"}
+        language_words |= {"multi"}
+        language_words |= {"sub", "subs", "dual", "audio"}
+        language_list = bool(tokens) and all(token in language_words for token in tokens)
         if not (technical or language_list):
             continue
-        if re.search(r"\bes\b", normalized_block) and "Spanish" not in languages:
+        if re.search(r"\b(?:es|cast)\b", normalized_block) and "Spanish" not in languages:
             languages.append("Spanish")
-        if re.search(r"\ben\b", normalized_block) and "English" not in languages:
+        if re.search(r"\b(?:en|ing)\b", normalized_block) and "English" not in languages:
             languages.append("English")
     return languages

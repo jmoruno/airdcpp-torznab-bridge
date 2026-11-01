@@ -14,7 +14,7 @@ import httpx
 
 from app.config import Settings
 from app.models import SearchResult
-from app.utils.text import detect_languages, episode_marker, normalize_text, season_pattern
+from app.utils.text import absolute_episode, detect_languages, episode_marker, normalize_text, season_pattern
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,8 @@ class AirDCError(RuntimeError):
 
 # Momento (time.monotonic) en el que la busqueda en curso tiene que dejar de abrir listas
 SEARCH_DEADLINE: contextvars.ContextVar[float | None] = contextvars.ContextVar("search_deadline", default=None)
+# Capitulos de la temporada 1 cuando la serie tiene varias (None: una sola o no se sabe)
+SEASON1_EPISODES: contextvars.ContextVar[int | None] = contextvars.ContextVar("season1_episodes", default=None)
 
 
 @dataclass
@@ -383,6 +385,20 @@ class AirDCClient:
         )
         return enriched
 
+    @staticmethod
+    def _absolute_season(names: list[str], title: str) -> bool:
+        """Ficheros numerados 01, 02... seguidos desde el 1, sin pasar de lo que tiene la temporada 1."""
+        numbers = [absolute_episode(name, title) for name in names]
+        if len(numbers) < 2 or any(number is None for number in numbers):
+            return False
+        episodes = sorted({number for number in numbers if number is not None})
+        limit = SEASON1_EPISODES.get()
+        return (
+            len(episodes) == len(numbers)
+            and episodes == list(range(1, episodes[-1] + 1))
+            and (limit is None or episodes[-1] <= limit)
+        )
+
     async def _inspect_partial_filelist(self, folder: dict, query: str, season: int) -> dict | None:
         users = folder.get("users")
         user = users.get("user", {}) if isinstance(users, dict) else {}
@@ -455,17 +471,23 @@ class AirDCClient:
                 ]
                 videos = all_videos
                 mixed_root = False
-                if not target:
-                    marked = [(value, episode_marker(str(value.get("name") or ""))) for value in all_videos]
-                    videos = [value for value, marker in marked if marker and marker[0] == season]
-                    mixed_root = any(marker and marker[0] != season for _, marker in marked)
-                videos = [value for value in videos if (episode_marker(str(value.get("name") or "")) or (0, -1))[1] != 0]
-                markers = [episode_marker(str(value.get("name") or "")) for value in videos]
-                if len(markers) < 2 or any(marker is None or marker[0] != season for marker in markers):
-                    return None
-                episodes = sorted({marker[1] for marker in markers if marker})
-                if len(episodes) != len(markers) or episodes != list(range(1, episodes[-1] + 1)):
-                    return None
+                names = [str(value.get("name") or "") for value in all_videos]
+                # Anime en una sola temporada: "Monster - 01 [1080p].mkv", sin S01E01
+                absolute = season == 1 and not any(episode_marker(name) for name in names)
+                if not (absolute and self._absolute_season(names, query)):
+                    if not target:
+                        marked = [(value, episode_marker(str(value.get("name") or ""))) for value in all_videos]
+                        videos = [value for value, marker in marked if marker and marker[0] == season]
+                        mixed_root = any(marker and marker[0] != season for _, marker in marked)
+                    videos = [
+                        value for value in videos if (episode_marker(str(value.get("name") or "")) or (0, -1))[1] != 0
+                    ]
+                    markers = [episode_marker(str(value.get("name") or "")) for value in videos]
+                    if len(markers) < 2 or any(marker is None or marker[0] != season for marker in markers):
+                        return None
+                    episodes = sorted({marker[1] for marker in markers if marker})
+                    if len(episodes) != len(markers) or episodes != list(range(1, episodes[-1] + 1)):
+                        return None
                 selected_files: list[dict[str, str | int]] = []
                 if mixed_root:
                     for value in videos:

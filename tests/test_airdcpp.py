@@ -643,3 +643,18 @@ async def test_season_inspection_stops_at_deadline(monkeypatch):
     finally:
         SEARCH_DEADLINE.reset(token)
     await http.aclose()
+
+
+def test_absolute_numbered_folder_counts_as_season_one():
+    from app.services.airdcpp import SEASON1_EPISODES
+
+    names = [f"Monster - {number:02d} [1080p][Cast++Jap+Subs].mkv" for number in range(1, 75)]
+    assert AirDCClient._absolute_season(names, "Monster")
+    assert not AirDCClient._absolute_season(names[:3] + names[4:], "Monster")
+    assert AirDCClient._common_technical_suffix(names) == "1080p SPANISH"
+    token = SEASON1_EPISODES.set(58)
+    try:
+        assert not AirDCClient._absolute_season(names, "Monster")
+        assert AirDCClient._absolute_season(names[:58], "Monster")
+    finally:
+        SEASON1_EPISODES.reset(token)
