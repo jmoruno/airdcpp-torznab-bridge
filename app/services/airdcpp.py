@@ -429,6 +429,99 @@ class AirDCClient:
             and (limit is None or episodes[-1] <= limit)
         )
 
+    async def directory_search(self, pattern: str) -> list[dict]:
+        """Carpetas que coinciden con ``pattern`` (resultados en bruto de AirDC++), de una en una como el resto."""
+        async with self.search_semaphore:
+            return await self._search_directories(pattern, {"pattern": pattern, "size_min": 50 * 1024 * 1024})
+
+    async def file_search(self, pattern: str) -> list[dict]:
+        """Ficheros que coinciden con ``pattern`` (resultados en bruto de AirDC++)."""
+        async with self.search_semaphore:
+            response = await self.http.post(f"{self.settings.airdcpp_url}/api/v1/search", json={}, headers=self.headers)
+            response.raise_for_status()
+            instance_id = response.json()["id"]
+            try:
+                return await self._collect_search_results(
+                    instance_id, {"pattern": pattern, "size_min": 50 * 1024 * 1024, "file_type": "video"}
+                )
+            finally:
+                try:
+                    await self.http.delete(
+                        f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}", headers=self.headers
+                    )
+                except httpx.HTTPError:
+                    logger.warning("No se pudo eliminar la búsqueda AirDC++ %s", instance_id)
+
+    async def browse_tree(self, folder: dict, max_depth: int = 2, max_dirs: int = 25) -> list[dict]:
+        """Ficheros de una carpeta y sus subcarpetas en la lista parcial del usuario.
+
+        Cada fichero lleva en ``_folder`` la ruta de la carpeta que lo contiene. Si la lista ya estaba abierta,
+        se deja como estaba.
+        """
+        users = folder.get("users")
+        user = users.get("user", {}) if isinstance(users, dict) else {}
+        cid = str(user.get("cid") or "")
+        hub_url = str(user.get("hub_url") or "")
+        root = str(folder.get("path") or "")
+        if not cid or not hub_url or not root:
+            return []
+        files: list[dict] = []
+        async with self._filelist_lock(cid):
+            opened = False
+            original = ""
+            current = ""
+            try:
+                existing = await self.http.get(f"{self.settings.airdcpp_url}/api/v1/filelists", headers=self.headers)
+                existing.raise_for_status()
+                if any(str(value.get("id")) == cid for value in existing.json()):
+                    if not await self._wait_filelist(cid):
+                        return []
+                    original = current = await self._filelist_path(cid)
+                else:
+                    response = await self.http.post(
+                        f"{self.settings.airdcpp_url}/api/v1/filelists",
+                        json={"user": {"cid": cid, "hub_url": hub_url}, "directory": root},
+                        headers=self.headers,
+                    )
+                    if response.status_code == 409:
+                        return []
+                    response.raise_for_status()
+                    opened = True
+                    if not await self._wait_filelist(cid, root):
+                        return []
+                    current = root
+                pending = [(root, 0)]
+                visited = 0
+                while pending and visited < max_dirs:
+                    path, depth = pending.pop(0)
+                    visited += 1
+                    if path != current:
+                        await self._change_filelist_directory(cid, path)
+                        current = path
+                    for item in await self._filelist_items(cid, path):
+                        kind = item.get("type") or {}
+                        if isinstance(kind, dict) and kind.get("id") == "directory":
+                            if depth < max_depth and item.get("path"):
+                                pending.append((str(item["path"]), depth + 1))
+                        else:
+                            files.append({**item, "_folder": path, "users": folder.get("users")})
+            except (AirDCError, httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
+                logger.info("No se pudo recorrer la carpeta %r: %s", folder.get("name"), exc)
+            finally:
+                if opened:
+                    try:
+                        await self.http.delete(
+                            f"{self.settings.airdcpp_url}/api/v1/filelists/{cid}", headers=self.headers
+                        )
+                    except httpx.HTTPError:
+                        logger.warning("No se pudo cerrar la lista parcial %s", cid)
+                elif original and current != original:
+                    try:
+                        await self._change_filelist_directory(cid, original)
+                    except (AirDCError, httpx.HTTPError):
+                        logger.warning("No se pudo restaurar la lista cid=%s en %r", cid, original)
+        return files
+
     async def _inspect_partial_filelist(self, folder: dict, query: str, season: int) -> dict | None:
         users = folder.get("users")
         user = users.get("user", {}) if isinstance(users, dict) else {}

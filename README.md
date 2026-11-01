@@ -164,6 +164,17 @@ Para hubs en inglés: pon el idioma del perfil de Radarr en **English**, en Sona
 | `SEASON_INSPECT_MAX` | `10` | 0–200 | Carpetas dudosas cuya lista de ficheros se abre para ver qué temporadas tienen. En hubs grandes conviene `200` |
 | `SEASON_INSPECT_TIMEOUT` | `5` | 1–120 s | Tiempo para abrir cada lista de ficheros. En hubs lentos conviene `60` |
 
+### Catálogo por serie
+
+La primera vez que se pide algo de una serie, después de contestar se busca la serie entera y se abren sus carpetas. Cada vídeo queda apuntado con su temporada, capítulo, número absoluto e idioma (también el de su carpeta: `Monster - 01.mkv` dentro de `Monster [2004] [Cast++Jap+Subs]` es castellano). Las peticiones siguientes de esa serie (Sonarr capítulo a capítulo, el addon) se contestan desde ahí sin ir a AirDC++. Si el catálogo no trae nada en el idioma de `TMDB_LANGUAGE`, se busca también como siempre.
+
+| Variable | Por defecto | Rango | Para qué |
+| --- | --- | --- | --- |
+| `CATALOG_ENABLED` | `true` | | Activa el catálogo |
+| `CATALOG_TTL` | `3600` | 60–86400 s | Cuánto dura un catálogo antes de rehacerse |
+| `CATALOG_MAX_FOLDERS` | `60` | 1–300 | Carpetas de la serie que se abren como mucho |
+| `CATALOG_BUILD_TIMEOUT` | `240` | 10–1800 s | Tiempo máximo para recorrer las carpetas |
+
 ### Otras
 
 | Variable | Por defecto | Para qué |

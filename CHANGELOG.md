@@ -4,6 +4,17 @@ Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión 
 
 Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
+## [2.3.0] - 2026-11-02
+
+### Añadido
+
+- Catálogo por serie: se busca la serie una vez, se abren sus carpetas y los capítulos siguientes se contestan desde ahí sin ir a AirDC++. Una búsqueda de temporada de anime pasa de una búsqueda por capítulo (horas) a unos minutos. El idioma de cada vídeo tiene en cuenta el de su carpeta. Variables `CATALOG_*`.
+- Al armar el catálogo solo se buscan las variantes del título que pueden aportar algo: AirDC++ exige todas las palabras, así que una variante con las de otra y alguna más no encuentra nada nuevo.
+
+### Corregido
+
+- Las etiquetas entre corchetes (`[Cast+Jap+Subs]`) ya no cuentan como palabras del título al descartar otras series.
+
 ## [2.2.2] - 2026-11-01
 
 ### Corregido

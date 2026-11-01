@@ -6,6 +6,7 @@ from app.config import Settings
 from app.models import SearchResult
 from app.services.airdcpp import SEARCH_DEADLINE, SEARCH_YEAR, SEASON1_EPISODES, AirDCClient
 from app.services.cache import AsyncTTLCache
+from app.services.catalog import CatalogService
 from app.services.database import Repository
 from app.services.metadata import MediaMetadata, MetadataClient
 from app.utils.text import clean_search_pattern, detect_languages, normalize_text, search_variants, title_roots, strip_diacritics
@@ -14,6 +15,8 @@ VIDEO_EXTENSIONS = (".mkv", ".avi", ".mp4", ".m4v", ".mov", ".wmv", ".mpg", ".mp
 MIN_VIDEO_SIZE = 50 * 1024 * 1024
 MIN_MOVIE_DIRECTORY_SIZE = 300 * 1024 * 1024
 logger = logging.getLogger(__name__)
+BRACKETS = re.compile(r"[\[{(][^\]})]*[\]})]")
+LANGUAGE_NAMES = {"es": "Spanish", "en": "English", "fr": "French", "de": "German", "it": "Italian", "pt": "Portuguese"}
 # Lo que marca el final del titulo en un nombre de serie: S01, S01E07, 1x07, T01, "Temporada"...
 SEASON_MARKER = re.compile(
     r"s\d{1,2}(?:e\d{1,4})?|e\d{1,4}|ep\d{1,4}|\d{1,2}x\d{1,4}|t\d{1,2}"
@@ -37,12 +40,14 @@ class SearchService:
         repository: Repository,
         cache: AsyncTTLCache[list[SearchResult]],
         settings: Settings,
+        catalog: CatalogService | None = None,
     ):
         self.airdcpp = airdcpp
         self.metadata = metadata
         self.repository = repository
         self.cache = cache
         self.settings = settings
+        self.catalog = catalog
         # Lo encontrado por cada busqueda en curso (o ya terminada) para poder ensenarlo antes de acabar
         self.progress: dict[str, tuple[dict, object]] = {}
 
@@ -103,6 +108,35 @@ class SearchService:
             self.progress[key] = (collected, metadata)
             while len(self.progress) > 300:
                 self.progress.pop(next(iter(self.progress)))
+            # Catálogo de la serie: si ya está armado, se contesta desde él sin ir a AirDC++. Si no trae nada en
+            # el idioma de TMDB_LANGUAGE, se busca también como siempre y se suma.
+            catalog_key = self._catalog_key(tvdb_id, tmdb_id, imdb_id)
+            from_catalog = False
+            if self.catalog and media_type == "tv" and (season is not None or absolute):
+                catalog = self.catalog.find(catalog_key, titles)
+                if catalog:
+                    found_in_catalog = self.catalog.results(
+                        catalog, season, episode, absolute or (), seasons.get(season) if season else None
+                    )
+                    found_in_catalog = self._filter_episode_or_absolute(
+                        found_in_catalog, titles, year, season, episode, media_type, absolute
+                    )
+                    found_in_catalog = self._same_series(found_in_catalog, titles, tvdb_id, tmdb_id, metadata.year)
+                    self._infer_languages(found_in_catalog, metadata)
+                    for result in found_in_catalog:
+                        collected[result.release_id] = result
+                    wanted = LANGUAGE_NAMES.get(metadata.localized_language)
+                    from_catalog = bool(found_in_catalog) and (
+                        not wanted or any(wanted in result.languages for result in found_in_catalog)
+                    )
+                    logger.info(
+                        "Catálogo de %r: %d resultados%s",
+                        catalog.titles[0],
+                        len(found_in_catalog),
+                        "" if from_catalog else "; se busca también en AirDC++",
+                    )
+                    if from_catalog:
+                        variants = []
             for position, variant in enumerate(variants[:max_variants], start=1):
                 # Cada variante cuesta la cola de AirDC++ mas SEARCH_TIMEOUT
                 if position > 1 and time.monotonic() + self.settings.search_timeout + 15 > deadline:
@@ -159,9 +193,19 @@ class SearchService:
                 await self.repository.save_release(result)
                 if result.tth:
                     await self.repository.save_hash(result.tth, result.release_id)
+            if self.catalog and media_type == "tv" and not from_catalog:
+                # Lo pedido ya está contestado; el resto de la serie se prepara detrás
+                self.catalog.ensure(catalog_key, titles, metadata.year)
             return results
 
         return await self.cache.get_or_create(key, perform)
+
+    @staticmethod
+    def _catalog_key(tvdb_id: str | None, tmdb_id: str | None, imdb_id: str | None) -> str | None:
+        for kind, value in (("tvdb", tvdb_id), ("tmdb", tmdb_id), ("imdb", imdb_id)):
+            if value:
+                return f"{kind}:{value}"
+        return None
 
     @staticmethod
     def _search_key(query, category, imdb_id, tmdb_id, tvdb_id, season, episode, absolute) -> str:
@@ -367,7 +411,9 @@ class SearchService:
             if incompatible_number:
                 rejected["sequel"] += 1
                 continue
-            if media_type == "tv" and SearchService._other_series(words, full_aliases, root_aliases, titles):
+            # Lo que va entre corchetes son etiquetas ("[Cast+Jap+Subs]"), no parte del título
+            unbracketed = normalize_text(BRACKETS.sub(" ", result.name).replace("_", " ")).split()
+            if media_type == "tv" and SearchService._other_series(unbracketed, full_aliases, root_aliases, titles):
                 rejected["other_series"] += 1
                 other_series.append(result.name)
                 continue
@@ -511,7 +557,8 @@ class SearchService:
                 original_language = language_names.get(metadata.original_language or "")
                 if original_language and original_language not in languages:
                     languages.append(original_language)
-            result.languages = languages
+            # Los del catálogo ya traen el idioma de su carpeta ("[Cast]"): se suman, no se sustituyen
+            result.languages = list(dict.fromkeys(result.languages + languages))
             known = {normalize_text(t) for t in metadata.titles if t}
             renamed = SearchService._arr_title(result.name, known)
             if renamed:

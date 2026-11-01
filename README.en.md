@@ -164,6 +164,17 @@ For English hubs: set the Radarr profile language to **English**, in Sonarr repl
 | `SEASON_INSPECT_MAX` | `10` | 0–200 | Ambiguous folders whose file list is opened to see which seasons they contain. `200` works well on large hubs |
 | `SEASON_INSPECT_TIMEOUT` | `5` | 1–120 s | Time to open each file list. `60` works well on slow hubs |
 
+### Per-series catalog
+
+The first time something from a show is requested, after answering, the whole show is searched and its folders are opened. Every video is recorded with its season, episode, absolute number and language (including its folder's: `Monster - 01.mkv` inside `Monster [2004] [Cast++Jap+Subs]` is Spanish). Later requests for that show (Sonarr episode by episode, the addon) are answered from there without going to AirDC++. If the catalog has nothing in the `TMDB_LANGUAGE` language, the usual search runs as well.
+
+| Variable | Default | Range | Use |
+| --- | --- | --- | --- |
+| `CATALOG_ENABLED` | `true` | | Turns the catalog on |
+| `CATALOG_TTL` | `3600` | 60–86400 s | How long a catalog lasts before it is rebuilt |
+| `CATALOG_MAX_FOLDERS` | `60` | 1–300 | Maximum show folders opened |
+| `CATALOG_BUILD_TIMEOUT` | `240` | 10–1800 s | Maximum time to go through the folders |
+
 ### Other
 
 | Variable | Default | Use |

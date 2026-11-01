@@ -12,6 +12,7 @@ from app.core.logging import setup_logging
 from app.routers import general, qbittorrent, torznab
 from app.services.airdcpp import AirDCClient
 from app.services.cache import AsyncTTLCache
+from app.services.catalog import CatalogService
 from app.services.database import Repository
 from app.services.metadata import MetadataClient
 from app.services.search import SearchService
@@ -38,7 +39,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         application.state.repository = repository
         application.state.airdcpp = airdcpp
         application.state.search_cache = cache
-        application.state.search_service = SearchService(airdcpp, metadata, repository, cache, configured)
+        application.state.catalog = CatalogService(airdcpp, configured)
+        application.state.search_service = SearchService(
+            airdcpp, metadata, repository, cache, configured, application.state.catalog
+        )
         logger.info("AirDC++ Bridge v2 iniciado; database=%s", configured.db_path)
         yield
         await http.aclose()

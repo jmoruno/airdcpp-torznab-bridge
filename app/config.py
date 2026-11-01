@@ -41,6 +41,11 @@ class Settings(BaseSettings):
     season_inspect_timeout: float = Field(default=5.0, ge=1.0, le=120.0)
     # Sonarr y Radarr dan por caida cada peticion al indexador a los 100 s
     response_timeout: float = Field(default=85.0, ge=10.0, le=600.0)
+    # Catálogo por serie: se busca la serie una vez y los capítulos se contestan desde ahí
+    catalog_enabled: bool = True
+    catalog_ttl: int = Field(default=3600, ge=60, le=86400)
+    catalog_max_folders: int = Field(default=60, ge=1, le=300)
+    catalog_build_timeout: float = Field(default=240.0, ge=10.0, le=1800.0)
     log_level: str = "INFO"
     testing: bool = False
 
