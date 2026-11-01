@@ -593,3 +593,53 @@ async def test_filelist_lock_serializes_same_cid_and_allows_different_cids():
     assert max_same_cid == 1
     assert client._filelist_locks == {}
     await http.aclose()
+
+
+async def test_season_inspection_stops_at_deadline(monkeypatch):
+    import time
+
+    from app.services.airdcpp import SEARCH_DEADLINE
+
+    client, http = make_client(lambda request: httpx.Response(404))
+    client.settings.season_inspect_max = 20
+    started: list[str] = []
+    finished: list[str] = []
+
+    async def inspect(item, query, season):
+        started.append(item["id"])
+        try:
+            await asyncio.sleep(0.05 if item["id"] == "0" else 30)
+            return {**item, "name": "Show S01"}
+        finally:
+            finished.append(item["id"])
+
+    monkeypatch.setattr(client, "_inspect_partial_filelist", inspect)
+    raw = [
+        {
+            "id": str(number),
+            "name": "Show",
+            "path": f"/Show {number}/",
+            "size": 200 * 1024 * 1024,
+            "type": {"id": "directory", "files": 10},
+            "users": {"user": {"cid": f"cid{number}"}},
+        }
+        for number in range(8)
+    ]
+    token = SEARCH_DEADLINE.set(time.monotonic() + 0.5)
+    try:
+        start = time.monotonic()
+        enriched = await client._inspect_ambiguous_season_folders(raw, "Show", 1)
+    finally:
+        SEARCH_DEADLINE.reset(token)
+    assert time.monotonic() - start < 3
+    assert [item["name"] for item in enriched[len(raw):]] == ["Show S01"]
+    assert sorted(finished) == sorted(started)
+
+    token = SEARCH_DEADLINE.set(time.monotonic() - 1)
+    try:
+        started.clear()
+        assert await client._inspect_ambiguous_season_folders(raw, "Show", 1) == raw
+        assert started == []
+    finally:
+        SEARCH_DEADLINE.reset(token)
+    await http.aclose()

@@ -187,3 +187,25 @@ def test_qbittorrent_categories_are_configurable_and_isolated(tmp_path):
         assert set(client.get("/api/v2/torrents/categories").json()) == {"radarr4k", "sonarr4k"}
         assert client.post("/api/v2/torrents/createCategory", data={"category": "RADARR4K"}).status_code == 200
         assert client.post("/api/v2/torrents/createCategory", data={"category": "radarr"}).status_code == 400
+
+
+def test_torznab_answers_with_partial_results_before_arr_timeout(tmp_path):
+    app = create_app(settings(tmp_path))
+    partial = SearchResult(release_id="b" * 40, name="Show S01E01 1080p.mkv", size=100)
+    calls: list[str] = []
+
+    async def slow_search(*args, **kwargs):
+        calls.append("search")
+        await asyncio.sleep(5)
+        return []
+
+    with TestClient(app) as client:
+        app.state.settings.response_timeout = 0.3
+        app.state.search_service.search = slow_search
+        app.state.search_service.peek = lambda *args, **kwargs: [partial]
+        response = client.get(
+            "/torznab/api", params={"t": "tvsearch", "q": "Show", "cat": "5000", "season": 1, "apikey": ""}
+        )
+        assert response.status_code == 200
+        assert "Show S01E01 1080p.mkv" in response.text
+        assert calls == ["search"]

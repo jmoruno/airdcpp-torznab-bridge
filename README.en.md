@@ -148,6 +148,7 @@ For English hubs: set the Radarr profile language to **English**, in Sonarr repl
 | --- | --- | --- | --- |
 | `SEARCH_TIMEOUT` | `10` | 2–60 s | Wait per title variant. The wait starts when the search leaves the AirDC++ queue, not before |
 | `DOWNLOAD_SEARCH_TIMEOUT` | `30` | s | Wait to find the source again when a download is started. Kept separate so searches stay fast |
+| `RESPONSE_TIMEOUT` | `85` | 10–600 s | Maximum time to answer Radarr and Sonarr, which give up on each request after 100 s. Near the limit it stops opening file lists and trying variants; if it still runs over, it returns what it has and the search finishes in the background (and is cached) |
 | `SEARCH_MAX_VARIANTS` | `4` | 1–20 | Title variants per search (localized, original, alternatives, `1x01`…) |
 | `SEARCH_MIN_ACCEPTED_RESULTS` | `5` | 1–100 | Valid results after which no more variants are tried |
 | `SEARCH_MAX_RESULTS` | `1000` | 1–5000 | AirDC++ results read |
@@ -221,6 +222,7 @@ The Arr indexer test, which carries no query, returns a validation result that c
 | Searches are slow | AirDC++ enforces several seconds between searches. Each variant waits up to `SEARCH_TIMEOUT` after leaving the queue |
 | Found but the download fails | The source went offline. Raise `DOWNLOAD_SEARCH_TIMEOUT` or try another result |
 | Full seasons are missing | Raise `SEASON_INSPECT_MAX` and `SEASON_INSPECT_TIMEOUT` |
+| Sonarr: "AirDC++ server is currently unavailable… timed out" | The answer took over 100 s. Lower `RESPONSE_TIMEOUT`. If interactive search fails in the browser, raise the proxy timeout (e.g. `proxy_read_timeout 300s;` in Nginx Proxy Manager) |
 | Other-language releases or Bluray discs are grabbed | The [custom formats](#profiles-and-custom-formats) or the Sonarr minimum score are missing |
 | Radarr says "Unknown Movie" | The name lacks a title Radarr knows. Check the alternative titles in Radarr |
 | Wrong language detected | Without `TMDB_API_KEY` the localized title and original language are unknown. Check `TMDB_LANGUAGE` |

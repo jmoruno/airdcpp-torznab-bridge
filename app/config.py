@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     airdcpp_max_active_searches: int = Field(default=1, ge=1, le=8)
     season_inspect_max: int = Field(default=10, ge=0, le=200)
     season_inspect_timeout: float = Field(default=5.0, ge=1.0, le=120.0)
+    # Sonarr y Radarr dan por caida cada peticion al indexador a los 100 s
+    response_timeout: float = Field(default=85.0, ge=10.0, le=600.0)
     log_level: str = "INFO"
     testing: bool = False
 

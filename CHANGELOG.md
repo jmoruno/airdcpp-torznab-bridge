@@ -4,6 +4,12 @@ Versiones con [SemVer](https://semver.org/lang/es/). Las notas de cada versión 
 
 Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELOG de Antaneyes](https://github.com/Antaneyes/airdcpp-torznab-bridge/blob/v2.0.0-beta.4/CHANGELOG.md).
 
+## [2.2.1] - 2026-11-01
+
+### Corregido
+
+- Las búsquedas de temporada con muchas carpetas dudosas (títulos genéricos como "Monster") podían tardar más de 100 s, y Sonarr descartaba todos los resultados de AirDC++. Ahora la respuesta llega antes de `RESPONSE_TIMEOUT` (85 s por defecto): deja de abrir listas y de probar variantes al acercarse el límite y, si aun así se pasa, devuelve lo encontrado y termina la búsqueda en segundo plano.
+
 ## [2.2.0] - 2026-10-31
 
 ### Añadido

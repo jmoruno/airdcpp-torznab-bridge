@@ -1,5 +1,6 @@
 import asyncio
 import base64
+import contextvars
 import hashlib
 import logging
 import re
@@ -20,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 class AirDCError(RuntimeError):
     pass
+
+
+# Momento (time.monotonic) en el que la busqueda en curso tiene que dejar de abrir listas
+SEARCH_DEADLINE: contextvars.ContextVar[float | None] = contextvars.ContextVar("search_deadline", default=None)
 
 
 @dataclass
@@ -354,13 +359,27 @@ class AirDCClient:
                 return await self._inspect_partial_filelist(item, query, season)
 
         enriched = list(raw)
-        inspected_results = await asyncio.gather(*(inspect(item) for item in candidates))
-        enriched.extend(result for result in inspected_results if result)
+        deadline = SEARCH_DEADLINE.get()
+        remaining = None if deadline is None else deadline - time.monotonic()
+        if not candidates or (remaining is not None and remaining <= 0):
+            if candidates:
+                logger.warning("Inspeccion profunda S%02d omitida: sin tiempo (candidatos=%d)", season, len(candidates))
+            return enriched
+        tasks = [asyncio.create_task(inspect(item)) for item in candidates]
+        done, pending = await asyncio.wait(tasks, timeout=remaining)
+        for task in pending:
+            task.cancel()
+        if pending:
+            # Las canceladas cierran o restauran su lista en el finally
+            await asyncio.gather(*pending, return_exceptions=True)
+        verified = [result for task in tasks if task in done and (result := task.result())]
+        enriched.extend(verified)
         logger.info(
-            "Inspeccion profunda S%02d: candidatos=%d verificados=%d",
+            "Inspeccion profunda S%02d: candidatos=%d verificados=%d%s",
             season,
             len(candidates),
-            sum(result is not None for result in inspected_results),
+            len(verified),
+            f" cortada_por_tiempo={len(pending)}" if pending else "",
         )
         return enriched
 

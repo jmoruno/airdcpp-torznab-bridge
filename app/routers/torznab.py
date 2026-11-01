@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import re
 from typing import Annotated
 
@@ -7,6 +9,7 @@ from app.models import SearchResult
 from app.services.airdcpp import AirDCError
 from app.utils.xml import caps_xml, error_xml, feed_xml
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -55,9 +58,20 @@ async def torznab(
         if partial:
             results = request.app.state.search_service.peek(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute)
         else:
-            results = await request.app.state.search_service.search(
-                q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=absolute
-            )
+            service = request.app.state.search_service
+            task = asyncio.ensure_future(service.search(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=absolute))
+            task.add_done_callback(lambda done: done.cancelled() or done.exception())
+            try:
+                results = await asyncio.wait_for(asyncio.shield(task), settings.response_timeout)
+            except TimeoutError:
+                # Sonarr y Radarr no esperan mas de 100 s: se devuelve lo encontrado y la busqueda
+                # sigue; al terminar queda en la cache para la siguiente peticion igual
+                results = service.peek(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute)
+                logger.warning(
+                    "Respuesta a los %.0f s con %d resultados parciales; la busqueda continua",
+                    settings.response_timeout,
+                    len(results),
+                )
         base_url = settings.public_url or str(request.base_url).rstrip("/")
         xml = feed_xml(
             results,

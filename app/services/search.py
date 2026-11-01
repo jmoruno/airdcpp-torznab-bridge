@@ -1,9 +1,10 @@
 import logging
 import re
+import time
 
 from app.config import Settings
 from app.models import SearchResult
-from app.services.airdcpp import AirDCClient
+from app.services.airdcpp import SEARCH_DEADLINE, AirDCClient
 from app.services.cache import AsyncTTLCache
 from app.services.database import Repository
 from app.services.metadata import MediaMetadata, MetadataClient
@@ -47,6 +48,9 @@ class SearchService:
 
         async def perform() -> list[SearchResult]:
             nonlocal absolute
+            # Margen para filtrar, guardar y generar el XML antes de RESPONSE_TIMEOUT
+            deadline = time.monotonic() + self.settings.response_timeout - 15
+            SEARCH_DEADLINE.set(deadline)
             media_type = "tv" if season is not None or absolute is not None or (category or "").startswith("5") else "movie"
             metadata = await self.metadata.details(query, imdb_id, tmdb_id, tvdb_id, media_type)
             titles = metadata.titles
@@ -83,6 +87,11 @@ class SearchService:
             while len(self.progress) > 300:
                 self.progress.pop(next(iter(self.progress)))
             for position, variant in enumerate(variants[:max_variants], start=1):
+                # Cada variante cuesta la cola de AirDC++ mas SEARCH_TIMEOUT
+                if position > 1 and time.monotonic() + self.settings.search_timeout + 15 > deadline:
+                    total = min(len(variants), max_variants)
+                    logger.warning("Sin tiempo para mas variantes: %d de %d", position - 1, total)
+                    break
                 raw = await self.airdcpp.search(
                     [variant], season if episode is None and absolute is None else None, VIDEO_EXTENSIONS
                 )

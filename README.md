@@ -148,6 +148,7 @@ Para hubs en inglés: pon el idioma del perfil de Radarr en **English**, en Sona
 | --- | --- | --- | --- |
 | `SEARCH_TIMEOUT` | `10` | 2–60 s | Espera por cada variante de título. La espera empieza cuando la búsqueda sale de la cola de AirDC++, no antes |
 | `DOWNLOAD_SEARCH_TIMEOUT` | `30` | s | Espera para volver a encontrar la fuente al pulsar descargar. Va aparte para que las búsquedas sigan siendo rápidas |
+| `RESPONSE_TIMEOUT` | `85` | 10–600 s | Tiempo máximo para contestar a Radarr y Sonarr, que abandonan cada petición a los 100 s. Al acercarse deja de abrir listas y de probar variantes; si aun así se pasa, devuelve lo encontrado y la búsqueda termina en segundo plano (queda en caché) |
 | `SEARCH_MAX_VARIANTS` | `4` | 1–20 | Variantes de título por búsqueda (español, original, alternativos, `1x01`…) |
 | `SEARCH_MIN_ACCEPTED_RESULTS` | `5` | 1–100 | Resultados válidos con los que deja de probar variantes |
 | `SEARCH_MAX_RESULTS` | `1000` | 1–5000 | Resultados de AirDC++ que se leen |
@@ -221,6 +222,7 @@ El test del indexador en Arr, que no lleva búsqueda, devuelve un resultado de v
 | Las búsquedas tardan mucho | AirDC++ deja varios segundos entre búsquedas. Cada variante espera hasta `SEARCH_TIMEOUT` desde que sale de la cola |
 | Encuentra pero falla al descargar | La fuente se desconectó. Sube `DOWNLOAD_SEARCH_TIMEOUT` o prueba con otro resultado |
 | Faltan temporadas completas | Sube `SEASON_INSPECT_MAX` y `SEASON_INSPECT_TIMEOUT` |
+| Sonarr: "AirDC++ server is currently unavailable… timed out" | La respuesta pasó de 100 s. Baja `RESPONSE_TIMEOUT`. Si la búsqueda interactiva falla en el navegador, sube el tiempo de espera del proxy (por ejemplo `proxy_read_timeout 300s;` en Nginx Proxy Manager) |
 | Se descargan versiones en otro idioma o discos Bluray | Faltan los [formatos personalizados](#perfiles-y-formatos-personalizados-en-español) o la puntuación mínima en Sonarr |
 | Radarr dice "Unknown Movie" | El nombre no lleva el título que conoce Radarr. Revisa los títulos alternativos en Radarr |
 | Idioma mal detectado | Sin `TMDB_API_KEY` no se conocen el título español ni el idioma original |
