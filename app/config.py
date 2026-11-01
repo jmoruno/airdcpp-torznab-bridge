@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     catalog_ttl: int = Field(default=3600, ge=60, le=86400)
     catalog_max_folders: int = Field(default=60, ge=1, le=300)
     catalog_build_timeout: float = Field(default=240.0, ge=10.0, le=1800.0)
+    # Peticiones seguidas sin nada nuevo en la búsqueda normal para que el catálogo conteste solo
+    # (0: desde el principio)
+    catalog_verify_requests: int = Field(default=3, ge=0, le=50)
     log_level: str = "INFO"
     testing: bool = False
 

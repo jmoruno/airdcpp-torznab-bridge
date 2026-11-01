@@ -166,7 +166,7 @@ Para hubs en inglés: pon el idioma del perfil de Radarr en **English**, en Sona
 
 ### Catálogo por serie
 
-La primera vez que se pide algo de una serie, después de contestar se busca la serie entera y se abren sus carpetas. Cada vídeo queda apuntado con su temporada, capítulo, número absoluto e idioma (también el de su carpeta: `Monster - 01.mkv` dentro de `Monster [2004] [Cast++Jap+Subs]` es castellano). Las peticiones siguientes de esa serie (Sonarr capítulo a capítulo, el addon) se contestan desde ahí sin ir a AirDC++. Si el catálogo no trae nada en el idioma de `TMDB_LANGUAGE`, se busca también como siempre.
+La primera vez que se pide algo de una serie, después de contestar se busca la serie entera y se abren sus carpetas. Cada vídeo queda apuntado con su temporada, capítulo, número absoluto e idioma (también el de su carpeta: `Monster - 01.mkv` dentro de `Monster [2004] [Cast++Jap+Subs]` es castellano). Las peticiones siguientes de esa serie (Sonarr capítulo a capítulo, el addon) se contestan desde ahí sin ir a AirDC++ en cuanto el catálogo demuestra que no le falta nada: mientras tanto se busca también como siempre y se compara.
 
 | Variable | Por defecto | Rango | Para qué |
 | --- | --- | --- | --- |
@@ -174,6 +174,7 @@ La primera vez que se pide algo de una serie, después de contestar se busca la 
 | `CATALOG_TTL` | `3600` | 60–86400 s | Cuánto dura un catálogo antes de rehacerse |
 | `CATALOG_MAX_FOLDERS` | `60` | 1–300 | Carpetas de la serie que se abren como mucho |
 | `CATALOG_BUILD_TIMEOUT` | `240` | 10–1800 s | Tiempo máximo para recorrer las carpetas |
+| `CATALOG_VERIFY_REQUESTS` | `3` | 0–50 | Peticiones seguidas en las que la búsqueda normal no aporta nada nuevo para que el catálogo conteste solo. Hasta entonces se busca también como siempre y se compara, así no se pierde nada |
 
 ### Otras
 

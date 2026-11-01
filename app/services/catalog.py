@@ -67,6 +67,8 @@ class Catalog:
     folders: int = 0
     # Por qué puede faltar algo: búsqueda llena, carpetas de más o sin terminar de recorrer
     gaps: list[str] = field(default_factory=list)
+    # Peticiones seguidas en las que la búsqueda normal no aportó nada que no tuviera el catálogo
+    verified: int = 0
 
     @property
     def complete(self) -> bool:
@@ -130,6 +132,17 @@ class CatalogService:
             if catalog and time.monotonic() - catalog.built_at < self.settings.catalog_ttl:
                 return catalog
         return None
+
+    def trusted(self, catalog: Catalog) -> bool:
+        """El catálogo contesta solo cuando ha demostrado que no le falta nada (CATALOG_VERIFY_REQUESTS)."""
+        return catalog.verified >= self.settings.catalog_verify_requests
+
+    def verify(self, catalog: Catalog, new: int) -> None:
+        """Resultado de comparar con la búsqueda normal: sin nada nuevo suma; con algo nuevo vuelve a empezar."""
+        before = self.trusted(catalog)
+        catalog.verified = 0 if new else catalog.verified + 1
+        if self.trusted(catalog) and not before:
+            logger.info("Catálogo de %r verificado: contesta solo a partir de ahora", catalog.titles[0])
 
     def ensure(self, key: str | None, titles: list[str], year: str | None) -> None:
         """Arma el catálogo en segundo plano si no hay uno vigente ni se está armando ya."""
@@ -336,7 +349,9 @@ class CatalogService:
         parts = [part for part in path.split("/") if part]
         if not cid or not parts:
             return None
-        for index in range(len(parts) - 1, max(-1, len(parts) - 4), -1):
+        # La más alta de las tres últimas que empiece por el título: en "Serie.2011/Serie.S01/Serie.E077/" se
+        # recorre la de la serie entera, no una carpeta por capítulo
+        for index in range(max(0, len(parts) - 3), len(parts)):
             if starts_with_title(parts[index], aliases) and not self._other_series(parts[index], titles):
                 root = "/" + "/".join(parts[: index + 1]) + "/"
                 return (cid, root), parts[index]
@@ -371,7 +386,8 @@ class CatalogService:
 
         async def browse(item: dict, name: str) -> list[dict]:
             async with semaphore:
-                return [{**value, "_series_folder": name} for value in await self.airdcpp.browse_tree(item)]
+                values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=200)
+                return [{**value, "_series_folder": name} for value in values]
 
         tasks = [asyncio.create_task(browse(item, name)) for item, name in candidates]
         if not tasks:
@@ -403,6 +419,10 @@ class CatalogService:
         parts = [part for part in folder.split("/") if part]
         start = max((index for index, part in enumerate(parts) if part == series_folder), default=len(parts) - 1)
         own_folders = parts[max(0, start) :]
+        # Dentro de "Hunter x Hunter/" puede haber "Hunter x Hunter (1999)/" y "(2011)/": cuenta la más concreta
+        series_folder = next(
+            (part for part in reversed(own_folders) if starts_with_title(part, aliases)), series_folder
+        )
         languages = set(detect_languages(name))
         for part in own_folders:
             languages.update(detect_languages(part))

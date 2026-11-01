@@ -41,12 +41,12 @@ class FakeAirDC:
         self.searches.append(f"ficheros:{pattern}")
         return self.loose
 
-    async def browse_tree(self, item: dict) -> list[dict]:
+    async def browse_tree(self, item: dict, **limits) -> list[dict]:
         return self.trees.get(item["path"], [])
 
 
-def settings() -> Settings:
-    return Settings(testing=True, airdcpp_url="http://airdcpp")
+def settings(**values) -> Settings:
+    return Settings(testing=True, airdcpp_url="http://airdcpp", **values)
 
 
 def test_useful_variants_skip_supersets():
@@ -124,7 +124,7 @@ async def test_search_service_answers_from_catalog_without_airdcpp():
 
     good = "/Series/Monster [2004] [Cast++Jap+Subs]/"
     trees = {good: [video(good, f"Monster - {n:02d} [1080p].mkv", "A", f"A{n}") for n in range(1, 75)]}
-    catalog_service = CatalogService(FakeAirDC([folder(good, "A")], trees), settings())
+    catalog_service = CatalogService(FakeAirDC([folder(good, "A")], trees), settings(catalog_verify_requests=0))
     await catalog_service.build("tvdb:74599", ["Monster"], "2004")
 
     class Metadata:
@@ -150,10 +150,34 @@ async def test_search_service_answers_from_catalog_without_airdcpp():
 
     air = AirDC()
     service = SearchService(
-        cast(Any, air), cast(Any, Metadata()), cast(Any, Repository()), AsyncTTLCache(60, 1, 10), settings(),
-        catalog_service,
+        cast(Any, air), cast(Any, Metadata()), cast(Any, Repository()), AsyncTTLCache(60, 1, 10),
+        settings(catalog_verify_requests=0), catalog_service,
     )
     results = await service.search(None, "5000", None, None, "74599", 1, 7)
     assert air.calls == 0
     assert [result.name for result in results] == ["Monster (2004) S01E07 1080p SPANISH"]
     assert results[0].languages == ["Spanish"]
+
+
+async def test_catalog_answers_alone_only_after_verification():
+    from app.services.catalog import Catalog
+
+    service = CatalogService(FakeAirDC([], {}), settings(catalog_verify_requests=2))
+    catalog = Catalog(key="k", titles=["Show"], built_at=0)
+    assert not service.trusted(catalog)
+    service.verify(catalog, 0)
+    service.verify(catalog, 3)  # la búsqueda normal trajo algo nuevo: vuelve a empezar
+    assert catalog.verified == 0 and not service.trusted(catalog)
+    service.verify(catalog, 0)
+    service.verify(catalog, 0)
+    assert service.trusted(catalog)
+
+
+def test_series_root_is_the_highest_folder_with_the_title():
+    from app.services.catalog import title_aliases
+
+    service = CatalogService(FakeAirDC([], {}), settings())
+    titles = ["Hunter x Hunter"]
+    item = folder("/Anime/Hunter.x.Hunter.2011/Hunter.x.Hunter.S01.1080p-GHOST/Hunter.x.Hunter.E077.1080p-GHOST/", "G")
+    root = service._series_root(item, title_aliases(titles), titles)
+    assert root == (("G", "/Anime/Hunter.x.Hunter.2011/"), "Hunter.x.Hunter.2011")

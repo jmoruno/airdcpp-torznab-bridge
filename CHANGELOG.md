@@ -8,7 +8,9 @@ Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELO
 
 ### Añadido
 
-- Catálogo por serie: se busca la serie una vez, se abren sus carpetas y los capítulos siguientes se contestan desde ahí sin ir a AirDC++. Una búsqueda de temporada de anime pasa de una búsqueda por capítulo (horas) a unos minutos. El idioma de cada vídeo tiene en cuenta el de su carpeta. Variables `CATALOG_*`.
+- Catálogo por serie: se busca la serie una vez, se abren sus carpetas y los capítulos siguientes se contestan desde ahí sin ir a AirDC++. El idioma de cada vídeo tiene en cuenta el de su carpeta. Para no perder nada, solo contesta solo cuando la búsqueda normal deja de aportar nada nuevo en `CATALOG_VERIFY_REQUESTS` peticiones seguidas; hasta entonces se busca también y se compara. Variables `CATALOG_*`.
+- Sonarr (series tipo Anime) manda `q=95` junto con el id de la serie: ahora es el capítulo absoluto 95, no un título.
+- Con solo el id de TVDB también se sacan de TMDB el título en castellano, el año y si es anime.
 - Al armar el catálogo solo se buscan las variantes del título que pueden aportar algo: AirDC++ exige todas las palabras, así que una variante con las de otra y alguna más no encuentra nada nuevo.
 
 ### Corregido

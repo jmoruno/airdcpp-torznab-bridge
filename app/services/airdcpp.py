@@ -188,7 +188,10 @@ class AirDCClient:
         queued = self._queue_seconds(response)
         if queued:
             logger.info("Busqueda en cola de AirDC++: %.1f s", queued)
-        deadline = time.monotonic() + queued + self.settings.search_timeout
+        # Con max_results (catálogo) se espera el doble y sin cortar antes: los usuarios lentos también cuentan
+        patient = max_results is not None
+        wait = max(self.settings.search_timeout * 2, 20.0) if patient else self.settings.search_timeout
+        deadline = time.monotonic() + queued + wait
         raw: list[dict] = []
         previous = -1
         stable = 0
@@ -201,7 +204,7 @@ class AirDCClient:
             )
             response.raise_for_status()
             raw = response.json()
-            if raw and len(raw) == previous:
+            if raw and len(raw) == previous and not patient:
                 stable += 1
                 if stable >= self.settings.search_stable_cycles:
                     break

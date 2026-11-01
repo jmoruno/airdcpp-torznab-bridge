@@ -166,7 +166,7 @@ For English hubs: set the Radarr profile language to **English**, in Sonarr repl
 
 ### Per-series catalog
 
-The first time something from a show is requested, after answering, the whole show is searched and its folders are opened. Every video is recorded with its season, episode, absolute number and language (including its folder's: `Monster - 01.mkv` inside `Monster [2004] [Cast++Jap+Subs]` is Spanish). Later requests for that show (Sonarr episode by episode, the addon) are answered from there without going to AirDC++. If the catalog has nothing in the `TMDB_LANGUAGE` language, the usual search runs as well.
+The first time something from a show is requested, after answering, the whole show is searched and its folders are opened. Every video is recorded with its season, episode, absolute number and language (including its folder's: `Monster - 01.mkv` inside `Monster [2004] [Cast++Jap+Subs]` is Spanish). Later requests for that show (Sonarr episode by episode, the addon) are answered from there without going to AirDC++ once the catalog has shown it misses nothing: until then the usual search runs as well and both are compared.
 
 | Variable | Default | Range | Use |
 | --- | --- | --- | --- |
@@ -174,6 +174,7 @@ The first time something from a show is requested, after answering, the whole sh
 | `CATALOG_TTL` | `3600` | 60–86400 s | How long a catalog lasts before it is rebuilt |
 | `CATALOG_MAX_FOLDERS` | `60` | 1–300 | Maximum show folders opened |
 | `CATALOG_BUILD_TIMEOUT` | `240` | 10–1800 s | Maximum time to go through the folders |
+| `CATALOG_VERIFY_REQUESTS` | `3` | 0–50 | Consecutive requests in which the usual search adds nothing new before the catalog answers alone. Until then the usual search runs as well and both are compared, so nothing is lost |
 
 ### Other
 
