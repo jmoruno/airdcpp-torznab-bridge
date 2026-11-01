@@ -113,6 +113,8 @@ class SearchService:
                     [variant], season if episode is None and absolute is None else None, VIDEO_EXTENSIONS
                 )
                 filtered = self._filter_episode_or_absolute(raw, titles, year, season, episode, media_type, absolute)
+                series_year = metadata.year if media_type == "tv" else None
+                filtered = self._same_series(filtered, titles, tvdb_id, tmdb_id, series_year)
                 duplicates = 0
                 for result in filtered:
                     if result.release_id in collected:
@@ -232,6 +234,43 @@ class SearchService:
         ]
         aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in aliases]
         return any(alias and words[: len(alias.split())] == alias.split() for alias in aliases)
+
+    @staticmethod
+    def _same_series(
+        results: list[SearchResult],
+        titles: list[str],
+        tvdb_id: str | None,
+        tmdb_id: str | None,
+        series_year: str | None,
+    ) -> list[SearchResult]:
+        """Fuera las de otra serie con el mismo titulo: "{tvdb-389492}" o "Monster (2022)" buscando la de 2004."""
+        aliases = [normalize_text(clean_search_pattern(title)) for title in titles]
+        aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in aliases]
+        aliases = [alias.split() for alias in dict.fromkeys(aliases) if alias]
+        kept: list[SearchResult] = []
+        for result in results:
+            words = normalize_text(result.name.replace("_", " ")).split()
+            spaced = " ".join(words)
+            ids = {"tvdb": tvdb_id, "tmdb": tmdb_id}
+            if any(
+                expected and (match := re.search(rf"\b{kind} ?(\d+)\b", spaced)) and match.group(1) != str(expected)
+                for kind, expected in ids.items()
+            ):
+                logger.info("Descartado por ser otra serie (id): %s", result.name)
+                continue
+            if series_year:
+                ends = [
+                    index + len(alias)
+                    for alias in aliases
+                    for index in range(min(3, len(words)))
+                    if words[index : index + len(alias)] == alias
+                ]
+                following = words[max(ends)] if ends and max(ends) < len(words) else ""
+                if re.fullmatch(r"(?:19|20)\d{2}", following) and abs(int(following) - int(series_year)) > 1:
+                    logger.info("Descartado por ser otra serie (ano %s): %s", following, result.name)
+                    continue
+            kept.append(result)
+        return kept
 
     @staticmethod
     def _other_series(words: list[str], full_aliases: list[str], root_aliases: list[str], titles: list[str]) -> bool:

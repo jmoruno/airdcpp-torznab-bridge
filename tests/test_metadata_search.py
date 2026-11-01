@@ -244,3 +244,18 @@ def test_other_series_with_same_first_word_is_rejected():
     assert SearchService._filter_and_rank(office, ["The Office (US)"], None, 1, 1, "tv") == office
     movie = [result("Monster The Ed Gein Story S01 2160p")]
     assert SearchService._filter_and_rank(movie, ["Monster"], None, None, None, "movie") == movie
+
+
+def test_same_title_from_another_year_or_id_is_dropped():
+    def result(name):
+        return SearchResult(release_id=name.encode().hex()[:40].ljust(40, "0"), name=name, size=1)
+
+    names = [
+        "Monster (2022) {Tvdb=389492} S01 1080p",
+        "Monster [2004] S01 1080p SPANISH",
+        "Monster 1983 - Staffel 01-03",
+        "Monster 2004 TVDB-74599 S01",
+        "Monster S01",
+    ]
+    kept = SearchService._same_series([result(name) for name in names], ["Monster"], "74599", None, "2004")
+    assert [value.name for value in kept] == [names[1], names[3], names[4]]
