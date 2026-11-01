@@ -275,6 +275,7 @@ class SearchService:
         root_aliases = [alias for alias in root_aliases if alias not in full_aliases]
         accepted: list[tuple[int, SearchResult]] = []
         rejected = {"size": 0, "type": 0, "title": 0, "year": 0, "sequel": 0, "other_series": 0, "episode": 0}
+        other_series: list[str] = []
 
         for result in results:
             if result.item_type not in {"file", "directory", "bundle"}:
@@ -325,6 +326,7 @@ class SearchService:
                 continue
             if media_type == "tv" and SearchService._other_series(words, full_aliases, root_aliases, titles):
                 rejected["other_series"] += 1
+                other_series.append(result.name)
                 continue
             if season is not None and episode is not None:
                 spaced = " ".join(words)
@@ -345,6 +347,9 @@ class SearchService:
 
         accepted.sort(key=lambda pair: (-pair[0], normalize_text(pair[1].name), -pair[1].size))
         logger.info("Filtro de relevancia: raw=%d aceptados=%d descartados=%s", len(results), len(accepted), rejected)
+        if other_series:
+            # Regla nueva: se registran para poder revisar que no se cuela una serie buena
+            logger.info("Descartados por ser otra serie: %s", " | ".join(sorted(set(other_series))[:10]))
         return [result for _, result in accepted]
 
     @staticmethod
