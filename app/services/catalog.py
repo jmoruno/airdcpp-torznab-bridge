@@ -70,6 +70,17 @@ class Catalog:
     # Peticiones seguidas en las que la búsqueda normal no aportó nada que no tuviera el catálogo
     verified: int = 0
 
+    def knows(self, tth: str | None) -> bool:
+        """Si el fichero está en el catálogo: entonces se sabe en qué carpeta está y qué capítulo es."""
+        if not tth:
+            return False
+        if not hasattr(self, "_tths"):
+            self._tths = {value.tth for value in self.files}
+        return tth in self._tths
+
+    def folders_of(self) -> set[str]:
+        return {f"{value.cid}:{normalize_text(value.folder)}" for value in self.files}
+
     @property
     def complete(self) -> bool:
         return not self.gaps
@@ -195,6 +206,8 @@ class CatalogService:
     @staticmethod
     def _matches(value: CatalogFile, season: int | None, episode: int | None, absolutes: tuple[int, ...]) -> bool:
         if value.season is not None:
+            if value.season == 1 and value.episode in absolutes:
+                return True  # "01x077": en la temporada 1 el capítulo es también el absoluto
             return season is not None and value.season == season and value.episode == episode
         if value.number is None:
             return False
@@ -437,7 +450,7 @@ class CatalogService:
             series_folder=series_folder,
             languages=sorted(languages),
         )
-        marker = episode_marker(name)
+        marker = episode_marker(name.replace("_", " "))
         if marker:
             entry.season, entry.episode = marker
             return entry if entry.episode else None

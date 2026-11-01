@@ -114,6 +114,7 @@ class SearchService:
             from_catalog = False
             catalog_ids: set[str] | None = None
             active_catalog = None
+            known_folders: set[str] = set()
             if self.catalog and media_type == "tv" and (season is not None or absolute):
                 catalog = self.catalog.find(catalog_key, titles)
                 if catalog:
@@ -128,6 +129,7 @@ class SearchService:
                     for result in found_in_catalog:
                         collected[result.release_id] = result
                     catalog_ids = {self._identity(result) for result in collected.values()}
+                    known_folders = catalog.folders_of()
                     wanted = LANGUAGE_NAMES.get(metadata.localized_language)
                     # Solo contesta solo cuando está verificado: hasta entonces se busca también como siempre y se
                     # compara (AirDC++ no devuelve lo mismo cada vez, así que no basta con cómo se armó)
@@ -187,6 +189,19 @@ class SearchService:
                 list(collected.values()), titles, year, season, episode, media_type, absolute
             )
             results = self._deduplicate_file_directories(filtered_results)
+            if active_catalog is not None and catalog_ids is not None:
+                # El catálogo sabe en qué carpeta está cada fichero: si conoce uno que la búsqueda normal ha dado por
+                # bueno y no es este capítulo (otra serie con el mismo título, otra numeración), se quita. Lo que
+                # el catálogo no conoce se queda, para no perder nada.
+                kept = [
+                    result
+                    for result in results
+                    if self._identity(result) in catalog_ids or not active_catalog.knows(result.tth)
+                ]
+                if len(kept) != len(results):
+                    dropped = len(results) - len(kept)
+                    logger.info("Catálogo: %d resultados de la búsqueda normal no son este capítulo", dropped)
+                results = kept
             self._infer_languages(results, metadata)
             logger.info(
                 "Deduplicacion semantica: entrada=%d salida=%d eliminados=%d",
@@ -200,7 +215,13 @@ class SearchService:
                     await self.repository.save_hash(result.tth, result.release_id)
             if catalog_ids is not None and active_catalog is not None and not from_catalog:
                 # Verificación: ¿ha traído la búsqueda normal algo que no tuviera el catálogo?
-                extra = [result for result in results if self._identity(result) not in catalog_ids]
+                extra = [
+                    result
+                    for result in results
+                    if self._identity(result) not in catalog_ids
+                    and not active_catalog.knows(result.tth)
+                    and f"{result.source_cid}:{normalize_text(result.source_path or '')}" not in known_folders
+                ]
                 self.catalog.verify(active_catalog, len(extra))
                 logger.info(
                     "Búsqueda además del catálogo: %d nuevos (%d en castellano); verificado %d/%d",

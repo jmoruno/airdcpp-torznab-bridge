@@ -181,3 +181,12 @@ def test_series_root_is_the_highest_folder_with_the_title():
     item = folder("/Anime/Hunter.x.Hunter.2011/Hunter.x.Hunter.S01.1080p-GHOST/Hunter.x.Hunter.E077.1080p-GHOST/", "G")
     root = service._series_root(item, title_aliases(titles), titles)
     assert root == (("G", "/Anime/Hunter.x.Hunter.2011/"), "Hunter.x.Hunter.2011")
+
+
+async def test_season_one_marker_counts_as_absolute_and_catalog_knows_its_files():
+    root = "/Anime/Hunter_x_Hunter_2011/"
+    trees = {root: [video(root, f"Hunter_x_Hunter_2011_01x{n:03d}_Title.mkv", "A", f"A{n}") for n in range(1, 149)]}
+    service = CatalogService(FakeAirDC([folder(root, "A")], trees), settings())
+    catalog = await service.build("tvdb:1", ["Hunter x Hunter"], "2011")
+    assert [result.tth for result in service.results(catalog, None, None, (77,))] == ["A77"]
+    assert catalog.knows("A77") and not catalog.knows("ZZZ")
