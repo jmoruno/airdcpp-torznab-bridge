@@ -311,6 +311,11 @@ class CatalogService:
             if len(loose) >= limit:
                 gaps.append("ficheros sueltos")
         candidates = self._top_folders(folders)
+        if not candidates:
+            # AirDC++ a veces no devuelve nada (hub ocupado, búsqueda que no salió): no se guarda un catálogo
+            # vacío, se vuelve a intentar con la siguiente petición
+            logger.info("Catálogo de %r: la búsqueda de carpetas no trajo ninguna; se reintentará", titles[0])
+            return Catalog(key=key, titles=titles, built_at=0, gaps=["sin carpetas"])
         if len(candidates) < len({root for root in folders}) and len(candidates) >= self.settings.catalog_max_folders:
             gaps.append(f"más de {self.settings.catalog_max_folders} carpetas")
         catalog = Catalog(key=key, titles=titles, built_at=time.monotonic(), gaps=gaps)
