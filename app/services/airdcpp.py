@@ -153,13 +153,15 @@ class AirDCClient:
                 except httpx.HTTPError:
                     logger.warning("No se pudo eliminar la búsqueda AirDC++ %s", instance_id)
 
-    async def _search_directories(self, pattern: str, query_data: dict[str, object]) -> list[dict]:
+    async def _search_directories(
+        self, pattern: str, query_data: dict[str, object], max_results: int | None = None
+    ) -> list[dict]:
         response = await self.http.post(f"{self.settings.airdcpp_url}/api/v1/search", json={}, headers=self.headers)
         response.raise_for_status()
         instance_id = response.json()["id"]
         try:
             return await self._collect_search_results(
-                instance_id, {**query_data, "pattern": pattern, "file_type": "directory"}
+                instance_id, {**query_data, "pattern": pattern, "file_type": "directory"}, max_results
             )
         finally:
             try:
@@ -174,7 +176,9 @@ class AirDCClient:
         except (ValueError, TypeError, AttributeError):
             return 0.0
 
-    async def _collect_search_results(self, instance_id: str | int, query_data: dict[str, object]) -> list[dict]:
+    async def _collect_search_results(
+        self, instance_id: str | int, query_data: dict[str, object], max_results: int | None = None
+    ) -> list[dict]:
         response = await self.http.post(
             f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/hub_search",
             json={"query": query_data, "hub_urls": []},
@@ -191,7 +195,8 @@ class AirDCClient:
         while time.monotonic() < deadline:
             await asyncio.sleep(self.settings.search_poll_interval)
             response = await self.http.get(
-                f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/results/0/{self.settings.search_max_results}",
+                f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}/results/0/"
+                f"{max_results or self.settings.search_max_results}",
                 headers=self.headers,
             )
             response.raise_for_status()
@@ -429,12 +434,14 @@ class AirDCClient:
             and (limit is None or episodes[-1] <= limit)
         )
 
-    async def directory_search(self, pattern: str) -> list[dict]:
+    async def directory_search(self, pattern: str, max_results: int | None = None) -> list[dict]:
         """Carpetas que coinciden con ``pattern`` (resultados en bruto de AirDC++), de una en una como el resto."""
         async with self.search_semaphore:
-            return await self._search_directories(pattern, {"pattern": pattern, "size_min": 50 * 1024 * 1024})
+            return await self._search_directories(
+                pattern, {"pattern": pattern, "size_min": 50 * 1024 * 1024}, max_results
+            )
 
-    async def file_search(self, pattern: str) -> list[dict]:
+    async def file_search(self, pattern: str, max_results: int | None = None) -> list[dict]:
         """Ficheros que coinciden con ``pattern`` (resultados en bruto de AirDC++)."""
         async with self.search_semaphore:
             response = await self.http.post(f"{self.settings.airdcpp_url}/api/v1/search", json={}, headers=self.headers)
@@ -442,7 +449,7 @@ class AirDCClient:
             instance_id = response.json()["id"]
             try:
                 return await self._collect_search_results(
-                    instance_id, {"pattern": pattern, "size_min": 50 * 1024 * 1024, "file_type": "video"}
+                    instance_id, {"pattern": pattern, "size_min": 50 * 1024 * 1024, "file_type": "video"}, max_results
                 )
             finally:
                 try:

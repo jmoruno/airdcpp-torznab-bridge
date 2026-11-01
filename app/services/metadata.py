@@ -55,7 +55,7 @@ class MetadataClient:
         found: list[str] = []
         tmdb = MediaMetadata()
         if self.tmdb_api_key:
-            tmdb = await self._tmdb_details(query, imdb_id, tmdb_id, media_type)
+            tmdb = await self._tmdb_details(query, imdb_id, tmdb_id, media_type, tvdb_id)
             found.extend(tmdb.titles)
         if imdb_id or tvdb_id:
             found.extend(await self._tvmaze_titles(imdb_id, tvdb_id))
@@ -78,14 +78,17 @@ class MetadataClient:
         imdb_id: str | None,
         tmdb_id: str | None,
         media_type: str | None,
+        tvdb_id: str | None = None,
     ) -> MediaMetadata:
         try:
             kind = "tv" if media_type == "tv" else "movie"
             item_id = tmdb_id
-            if imdb_id:
+            external = (imdb_id, "imdb_id") if imdb_id else (tvdb_id, "tvdb_id") if tvdb_id and not tmdb_id else None
+            if external:
+                # Sonarr a veces solo manda el id de TVDB: TMDB lo traduce igual que el de IMDb
                 response = await self.client.get(
-                    f"https://api.themoviedb.org/3/find/{imdb_id}",
-                    params={"api_key": self.tmdb_api_key, "external_source": "imdb_id", "language": self.language},
+                    f"https://api.themoviedb.org/3/find/{external[0]}",
+                    params={"api_key": self.tmdb_api_key, "external_source": external[1], "language": self.language},
                 )
                 response.raise_for_status()
                 payload = response.json()

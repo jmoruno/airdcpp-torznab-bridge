@@ -33,11 +33,11 @@ class FakeAirDC:
         self.loose = loose or []
         self.searches: list[str] = []
 
-    async def directory_search(self, pattern: str) -> list[dict]:
+    async def directory_search(self, pattern: str, max_results: int | None = None) -> list[dict]:
         self.searches.append(pattern)
         return self.folders
 
-    async def file_search(self, pattern: str) -> list[dict]:
+    async def file_search(self, pattern: str, max_results: int | None = None) -> list[dict]:
         self.searches.append(f"ficheros:{pattern}")
         return self.loose
 

@@ -261,14 +261,16 @@ class CatalogService:
         folders: dict[tuple[str, str], tuple[dict, str]] = {}
         loose: list[dict] = []
         gaps: list[str] = []
-        limit = self.settings.search_max_results
+        # El catálogo pide hasta 5000 resultados (la búsqueda normal, SEARCH_MAX_RESULTS): con títulos de anime
+        # largos 1000 se quedan cortos y faltarían carpetas y ficheros sueltos
+        limit = max(5000, self.settings.search_max_results)
         for variant in useful_variants(titles)[:3]:
-            raw = await self.airdcpp.directory_search(variant)
+            raw = await self.airdcpp.directory_search(variant, limit)
             if len(raw) >= limit and year and year not in variant:
                 # Título genérico: los primeros 1000 son de otras cosas. Con el año salen los de la serie,
                 # y se suman a lo ya encontrado (sin sustituirlo).
                 logger.info("Catálogo: %r llena el máximo, se añade %r", variant, f"{variant} {year}")
-                with_year = await self.airdcpp.directory_search(f"{variant} {year}")
+                with_year = await self.airdcpp.directory_search(f"{variant} {year}", limit)
                 if len(with_year) >= limit:
                     gaps.append(f"carpetas de {variant!r} {year}")
                 raw += with_year
@@ -279,7 +281,7 @@ class CatalogService:
                 if root:
                     folders.setdefault(root[0], (item, root[1]))
         if useful_variants(titles):
-            loose = await self.airdcpp.file_search(useful_variants(titles)[0])
+            loose = await self.airdcpp.file_search(useful_variants(titles)[0], limit)
             if len(loose) >= limit:
                 gaps.append("ficheros sueltos")
         candidates = self._top_folders(folders)
