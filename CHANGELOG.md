@@ -9,6 +9,7 @@ Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELO
 ### Corregido
 
 - Las búsquedas de temporada con muchas carpetas dudosas (títulos genéricos como "Monster") podían tardar más de 100 s, y Sonarr descartaba todos los resultados de AirDC++. Ahora la respuesta llega antes de `RESPONSE_TIMEOUT` (85 s por defecto): deja de abrir listas y de probar variantes al acercarse el límite y, si aun así se pasa, devuelve lo encontrado y termina la búsqueda en segundo plano.
+- Series distintas que empiezan igual ("Monster: The Ed Gein Story", "Monster High") ya no se dan por buenas al buscar "Monster": se descartan los nombres con palabras de más entre el título completo y la temporada.
 
 ## [2.2.0] - 2026-10-31
 

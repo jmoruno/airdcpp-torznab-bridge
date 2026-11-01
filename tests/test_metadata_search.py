@@ -220,3 +220,27 @@ def test_language_inference_requires_distinct_localized_title_and_handles_multi(
     ambiguous = [SearchResult(release_id="x", name="X.2022.Multi.mkv", size=1)]
     SearchService._infer_languages(ambiguous, MediaMetadata(["X"], "X", "X", "en"))
     assert ambiguous[0].languages == []
+
+
+def test_other_series_with_same_first_word_is_rejected():
+    def result(name):
+        return SearchResult(release_id=name.encode().hex()[:40].ljust(40, "0"), name=name, size=500 * 1024 * 1024)
+
+    names = [
+        "Monster.The.Ed.Gein.Story.S01E07.MULTi.1080p.NF.WEB-DL.mkv",
+        "Monster.High.S01.DUTCH.1080p.WEB.h264",
+        "Monster 2004 TVDB-74599 S01 480p WEBDL",
+        "Monster S01 Temporada 1",
+        "Monster HDTV Castellano S01",
+        "Monster Serie Completa Castellano Temporada 1",
+    ]
+    accepted = SearchService._filter_and_rank([result(name) for name in names], ["Monster"], None, 1, None, "tv")
+    assert sorted(value.name for value in accepted) == sorted(names[2:])
+
+    frieren = [result("Frieren - Tras el final del viaje S01E07 1080p.mkv")]
+    titles = ["Frieren: Beyond Journey's End", "Sousou no Frieren"]
+    assert SearchService._filter_and_rank(frieren, titles, None, 1, 7, "tv") == frieren
+    office = [result("The Office US S01E01 720p.mkv")]
+    assert SearchService._filter_and_rank(office, ["The Office (US)"], None, 1, 1, "tv") == office
+    movie = [result("Monster The Ed Gein Story S01 2160p")]
+    assert SearchService._filter_and_rank(movie, ["Monster"], None, None, None, "movie") == movie

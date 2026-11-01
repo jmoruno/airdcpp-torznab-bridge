@@ -14,6 +14,19 @@ VIDEO_EXTENSIONS = (".mkv", ".avi", ".mp4", ".m4v", ".mov", ".wmv", ".mpg", ".mp
 MIN_VIDEO_SIZE = 50 * 1024 * 1024
 MIN_MOVIE_DIRECTORY_SIZE = 300 * 1024 * 1024
 logger = logging.getLogger(__name__)
+# Lo que marca el final del titulo en un nombre de serie: S01, S01E07, 1x07, T01, "Temporada"...
+SEASON_MARKER = re.compile(
+    r"s\d{1,2}(?:e\d{1,4})?|e\d{1,4}|ep\d{1,4}|\d{1,2}x\d{1,4}|t\d{1,2}"
+    r"|temporada|temporadas|temp|season|seasons|capitulo|capitulos|cap|episodio|episodios|episode|ep"
+)
+# Palabras que pueden ir entre el titulo y la temporada sin que sea otra serie
+TITLE_NOISE = {
+    "tv", "serie", "series", "anime", "completa", "completas", "complete", "pack", "integral",
+    "castellano", "espanol", "spanish", "latino", "dual", "multi", "audio", "vose", "vos", "vo", "sub", "subs",
+    "subtitulado", "subtitulos", "hd", "fullhd", "uhd", "4k", "us", "uk", "remastered", "remasterizado",
+    "tvdb", "tmdb", "imdb", "hdtv", "web", "dl", "webdl", "webrip", "rip", "bluray", "bdrip", "dvdrip", "hdrip",
+    "microhd", "x264", "x265", "h264", "h265", "hevc", "avc", "aac", "ac3", "dts", "proper", "repack",
+}
 
 
 class SearchService:
@@ -217,6 +230,35 @@ class SearchService:
         return any(alias and words[: len(alias.split())] == alias.split() for alias in aliases)
 
     @staticmethod
+    def _other_series(words: list[str], full_aliases: list[str], root_aliases: list[str], titles: list[str]) -> bool:
+        """'Monster The Ed Gein Story S01' no es 'Monster S01': palabras de mas entre el titulo completo y la temporada.
+
+        Solo cuenta cuando el nombre lleva el titulo completo; con la raiz ("Frieren" de "Frieren: Beyond
+        Journey's End") lo que sigue suele ser el subtitulo en otro idioma. Sin marca de temporada no decide.
+        """
+        best: tuple[int, bool] | None = None
+        for alias in full_aliases + root_aliases:
+            phrase = alias.split()
+            for index in range(min(3, len(words) - len(phrase) + 1)):
+                if words[index : index + len(phrase)] == phrase:
+                    end = index + len(phrase)
+                    if best is None or end > best[0] or (end == best[0] and alias in full_aliases):
+                        best = (end, alias in full_aliases)
+        if best is None or not best[1]:
+            return False
+        # Lo que va entre parentesis en el titulo, "(US)" en "The Office (US)", tambien vale
+        bracketed = [part for title in titles for part in re.findall(r"\(([^)]*)\)", title)]
+        allowed = TITLE_NOISE | {word for part in bracketed for word in normalize_text(part).split()}
+        extra = 0
+        for word in words[best[0] :]:
+            if SEASON_MARKER.fullmatch(word):
+                return extra > 0
+            if word in allowed or word.isdigit() or re.fullmatch(r"\d{3,4}p", word):
+                continue
+            extra += 1
+        return False
+
+    @staticmethod
     def _filter_and_rank(
         results: list[SearchResult],
         titles: list[str],
@@ -232,7 +274,7 @@ class SearchService:
         root_aliases = [normalize_text(root) for root in title_roots(titles)]
         root_aliases = [alias for alias in root_aliases if alias not in full_aliases]
         accepted: list[tuple[int, SearchResult]] = []
-        rejected = {"size": 0, "type": 0, "title": 0, "year": 0, "sequel": 0, "episode": 0}
+        rejected = {"size": 0, "type": 0, "title": 0, "year": 0, "sequel": 0, "other_series": 0, "episode": 0}
 
         for result in results:
             if result.item_type not in {"file", "directory", "bundle"}:
@@ -280,6 +322,9 @@ class SearchService:
                         incompatible_number = True
             if incompatible_number:
                 rejected["sequel"] += 1
+                continue
+            if media_type == "tv" and SearchService._other_series(words, full_aliases, root_aliases, titles):
+                rejected["other_series"] += 1
                 continue
             if season is not None and episode is not None:
                 spaced = " ".join(words)
