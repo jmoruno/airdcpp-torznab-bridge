@@ -65,6 +65,12 @@ class Catalog:
     built_at: float
     files: list[CatalogFile] = field(default_factory=list)
     folders: int = 0
+    # Por qué puede faltar algo: búsqueda llena, carpetas de más o sin terminar de recorrer
+    gaps: list[str] = field(default_factory=list)
+
+    @property
+    def complete(self) -> bool:
+        return not self.gaps
 
 
 def title_aliases(titles: list[str]) -> list[list[str]]:
@@ -253,22 +259,33 @@ class CatalogService:
         aliases = title_aliases(titles)
         folders: dict[tuple[str, str], tuple[dict, str]] = {}
         loose: list[dict] = []
+        gaps: list[str] = []
+        limit = self.settings.search_max_results
         for variant in useful_variants(titles)[:3]:
             raw = await self.airdcpp.directory_search(variant)
-            if len(raw) >= self.settings.search_max_results and year and year not in variant:
+            if len(raw) >= limit and year and year not in variant:
                 # Título genérico: los primeros 1000 son de otras cosas. Con el año salen los de la serie,
                 # y se suman a lo ya encontrado (sin sustituirlo).
                 logger.info("Catálogo: %r llena el máximo, se añade %r", variant, f"{variant} {year}")
-                raw += await self.airdcpp.directory_search(f"{variant} {year}")
+                with_year = await self.airdcpp.directory_search(f"{variant} {year}")
+                if len(with_year) >= limit:
+                    gaps.append(f"carpetas de {variant!r} {year}")
+                raw += with_year
+            elif len(raw) >= limit:
+                gaps.append(f"carpetas de {variant!r}")
             for item in raw:
                 root = self._series_root(item, aliases, titles)
                 if root:
                     folders.setdefault(root[0], (item, root[1]))
         if useful_variants(titles):
             loose = await self.airdcpp.file_search(useful_variants(titles)[0])
+            if len(loose) >= limit:
+                gaps.append("ficheros sueltos")
         candidates = self._top_folders(folders)
-        catalog = Catalog(key=key, titles=titles, built_at=time.monotonic())
-        files = await self._browse(candidates)
+        if len(candidates) < len({root for root in folders}) and len(candidates) >= self.settings.catalog_max_folders:
+            gaps.append(f"más de {self.settings.catalog_max_folders} carpetas")
+        catalog = Catalog(key=key, titles=titles, built_at=time.monotonic(), gaps=gaps)
+        files = await self._browse(candidates, gaps)
         for item in loose:
             if not starts_with_title(str(item.get("name") or ""), aliases):
                 continue
@@ -293,12 +310,13 @@ class CatalogService:
             old_key, _ = self.catalogs.popitem(last=False)
             self.aliases = {alias: value for alias, value in self.aliases.items() if value != old_key}
         logger.info(
-            "Catálogo de %r: %d carpetas, %d vídeos (%d en castellano) en %.0f s",
+            "Catálogo de %r: %d carpetas, %d vídeos (%d en castellano) en %.0f s; %s",
             titles[0],
             len(candidates),
             len(catalog.files),
             sum("Spanish" in value.languages for value in catalog.files),
             time.monotonic() - start,
+            "completo" if catalog.complete else "incompleto: " + ", ".join(catalog.gaps),
         )
         return catalog
 
@@ -345,7 +363,7 @@ class CatalogService:
         ordered = sorted(kept.values(), key=lambda pair: -int(float(pair[0].get("size", 0) or 0)))
         return ordered[: self.settings.catalog_max_folders]
 
-    async def _browse(self, candidates: list[tuple[dict, str]]) -> list[dict]:
+    async def _browse(self, candidates: list[tuple[dict, str]], gaps: list[str]) -> list[dict]:
         semaphore = asyncio.Semaphore(6)
 
         async def browse(item: dict, name: str) -> list[dict]:
@@ -360,7 +378,7 @@ class CatalogService:
             task.cancel()
         if pending:
             await asyncio.gather(*pending, return_exceptions=True)
-            logger.info("Catálogo: %d carpetas sin terminar de recorrer por tiempo", len(pending))
+            gaps.append(f"{len(pending)} carpetas sin recorrer")
         files: list[dict] = []
         for task in tasks:
             if task in done and not task.cancelled() and task.exception() is None:

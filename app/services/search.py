@@ -112,6 +112,7 @@ class SearchService:
             # el idioma de TMDB_LANGUAGE, se busca también como siempre y se suma.
             catalog_key = self._catalog_key(tvdb_id, tmdb_id, imdb_id)
             from_catalog = False
+            catalog_ids: set[str] | None = None
             if self.catalog and media_type == "tv" and (season is not None or absolute):
                 catalog = self.catalog.find(catalog_key, titles)
                 if catalog:
@@ -125,9 +126,12 @@ class SearchService:
                     self._infer_languages(found_in_catalog, metadata)
                     for result in found_in_catalog:
                         collected[result.release_id] = result
+                    catalog_ids = set(collected)
                     wanted = LANGUAGE_NAMES.get(metadata.localized_language)
+                    # Completo: lo que no esté en el catálogo tampoco lo trae la búsqueda normal (comprobado: 50 s
+                    # para los mismos 4 resultados). Incompleto: se busca también si no hay nada en el idioma.
                     from_catalog = bool(found_in_catalog) and (
-                        not wanted or any(wanted in result.languages for result in found_in_catalog)
+                        catalog.complete or not wanted or any(wanted in result.languages for result in found_in_catalog)
                     )
                     logger.info(
                         "Catálogo de %r: %d resultados%s",
@@ -193,6 +197,14 @@ class SearchService:
                 await self.repository.save_release(result)
                 if result.tth:
                     await self.repository.save_hash(result.tth, result.release_id)
+            if catalog_ids is not None and not from_catalog:
+                # Para ver si de verdad hace falta buscar además del catálogo
+                extra = [result for result in results if result.release_id not in catalog_ids]
+                logger.info(
+                    "Búsqueda además del catálogo: %d nuevos (%d en castellano)",
+                    len(extra),
+                    sum("Spanish" in result.languages for result in extra),
+                )
             if self.catalog and media_type == "tv" and not from_catalog:
                 # Lo pedido ya está contestado; el resto de la serie se prepara detrás
                 self.catalog.ensure(catalog_key, titles, metadata.year)
