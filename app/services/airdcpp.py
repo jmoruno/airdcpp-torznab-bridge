@@ -334,11 +334,16 @@ class AirDCClient:
         already_verified = self._verified_season_folders(raw, season)
         candidates: list[dict] = []
         candidate_cids: set[str] = set()
+        phrase = normalize_text(query).split()
         for item in raw:
             raw_type = item.get("type", {})
             if not isinstance(raw_type, dict) or raw_type.get("id") != "directory":
                 continue
             if str(item.get("id")) in already_verified or season_pattern(season).search(str(item.get("name") or "")):
+                continue
+            # Solo carpetas cuyo nombre empieza por el titulo: "Some Kind of Monster" se descartaria despues igual
+            words = normalize_text(str(item.get("name") or "").replace("_", " ")).split()
+            if not any(words[index : index + len(phrase)] == phrase for index in range(min(3, len(words)))):
                 continue
             if int(float(item.get("size", 0) or 0)) < 100 * 1024 * 1024:
                 continue
@@ -376,6 +381,9 @@ class AirDCClient:
             await asyncio.gather(*pending, return_exceptions=True)
         verified = [result for task in tasks if task in done and (result := task.result())]
         enriched.extend(verified)
+        if verified:
+            names = " | ".join(str(item.get("_verified_display")) for item in verified[:10])
+            logger.info("Carpetas verificadas: %s", names)
         logger.info(
             "Inspeccion profunda S%02d: candidatos=%d verificados=%d%s",
             season,
