@@ -59,7 +59,7 @@ class MetadataClient:
             found.extend(tmdb.titles)
         if imdb_id or tvdb_id:
             found.extend(await self._tvmaze_titles(imdb_id, tvdb_id))
-        if query:
+        if query and not query.strip().isdigit():
             found.append(query)
         unique = list(dict.fromkeys(t.strip() for t in found if t and t.strip()))
         metadata = MediaMetadata(

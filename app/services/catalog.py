@@ -99,6 +99,7 @@ def useful_variants(titles: list[str]) -> list[str]:
         value
         for value in search_variants(titles)
         if all(char.isascii() or not char.isalpha() for char in strip_diacritics(value))
+        and sum(char.isalpha() for char in value) >= 3  # "75" no es un título
     ]
     kept: list[tuple[set[str], str]] = []
     for variant in sorted(latin, key=lambda value: len(normalize_text(value).split())):

@@ -209,3 +209,17 @@ def test_torznab_answers_with_partial_results_before_arr_timeout(tmp_path):
         assert response.status_code == 200
         assert "Show S01E01 1080p.mkv" in response.text
         assert calls == ["search"]
+
+
+def test_numeric_query_with_ids_is_an_absolute_episode(tmp_path):
+    app = create_app(settings(tmp_path))
+    calls: list[tuple] = []
+
+    async def search(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute=None):
+        calls.append((q, tvdbid, absolute))
+        return []
+
+    with TestClient(app) as client:
+        app.state.search_service.search = search
+        client.get("/torznab/api", params={"t": "tvsearch", "q": "95", "tvdbid": "252322", "cat": "5070"})
+    assert calls == [(None, "252322", 95)]

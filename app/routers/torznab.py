@@ -55,6 +55,10 @@ async def torznab(
             daily = re.search(r"\b(?:19|20)\d{2} \d{1,2} \d{1,2}$", " ".join(q.split()))
             if title.strip() and number.isdigit() and len(number) <= 4 and not daily:
                 q, absolute = title.strip(), int(number)
+        has_ids = bool(imdbid or tmdbid or tvdbid)
+        if absolute is None and q and q.strip().isdigit() and has_ids and season is None and ep is None:
+            # Sonarr (series tipo Anime) con ids: "q=95" es el capítulo absoluto, no un título
+            q, absolute = None, int(q.strip())
         if partial:
             results = request.app.state.search_service.peek(q, cat, imdbid, tmdbid, tvdbid, season, ep, absolute)
         else:

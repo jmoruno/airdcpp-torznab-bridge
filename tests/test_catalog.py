@@ -52,6 +52,7 @@ def settings() -> Settings:
 def test_useful_variants_skip_supersets():
     assert useful_variants(["Hunter x Hunter (2011)", "Hunter × Hunter"]) == ["Hunter Hunter"]
     assert useful_variants(["Monstruo", "Monster"]) == ["Monstruo", "Monster"]
+    assert useful_variants(["Hunter x Hunter", "75"]) == ["Hunter x Hunter"]
 
 
 async def test_monster_catalog_uses_folder_language_and_drops_other_series():
