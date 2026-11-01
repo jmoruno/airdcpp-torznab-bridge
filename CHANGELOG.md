@@ -9,6 +9,8 @@ Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELO
 ### Corregido
 
 - Carpetas de anime con numeración absoluta (`Monster - 01 [1080p].mkv`, sin `S01E01`) se aceptan como temporada 1 si los capítulos van seguidos desde el 1 y no pasan de los que tiene esa temporada.
+- Búsquedas de temporada con títulos genéricos ("Monster"): si AirDC++ devuelve el máximo de resultados, se repite con el año de estreno ("Monster 2004"), porque las carpetas de la serie no llegaban a salir.
+- Solo se abren las listas de carpetas cuyo nombre empieza por el título.
 - `Cast` dentro de una lista de idiomas entre corchetes (`[Cast+Jap+Subs]`, `[Cast-Jap]`) cuenta como castellano, y la carpeta sale con `SPANISH` para que Sonarr la puntúe.
 
 ## [2.2.1] - 2026-11-01

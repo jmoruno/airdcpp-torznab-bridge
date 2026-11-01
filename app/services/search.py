@@ -4,7 +4,7 @@ import time
 
 from app.config import Settings
 from app.models import SearchResult
-from app.services.airdcpp import SEARCH_DEADLINE, SEASON1_EPISODES, AirDCClient
+from app.services.airdcpp import SEARCH_DEADLINE, SEARCH_YEAR, SEASON1_EPISODES, AirDCClient
 from app.services.cache import AsyncTTLCache
 from app.services.database import Repository
 from app.services.metadata import MediaMetadata, MetadataClient
@@ -72,6 +72,7 @@ class SearchService:
             # Una carpeta "Titulo - 01..74" vale como S01 si no pasa de lo que tiene la temporada 1
             seasons = {number: count for number, count in metadata.season_counts.items() if number >= 1}
             SEASON1_EPISODES.set(seasons.get(1) if len(seasons) > 1 else None)
+            SEARCH_YEAR.set(metadata.year if media_type == "tv" else None)
             year_match = re.search(r"(?:\s|\()(\d{4})(?:\)|$)", query or "")
             variants = search_variants(titles, year_match.group(1) if year_match and media_type == "movie" else None)
             by_episode = season is not None and episode is not None

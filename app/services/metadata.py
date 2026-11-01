@@ -17,6 +17,7 @@ class MediaMetadata:
     anime: bool = False
     foreign_titles: list[str] = field(default_factory=list)
     localized_language: str = "es"
+    year: str | None = None
 
 
 class MetadataClient:
@@ -63,7 +64,7 @@ class MetadataClient:
         unique = list(dict.fromkeys(t.strip() for t in found if t and t.strip()))
         metadata = MediaMetadata(
             unique, tmdb.localized_title, tmdb.original_title, tmdb.original_language, tmdb.season_counts, tmdb.anime,
-            tmdb.foreign_titles, self.lang,
+            tmdb.foreign_titles, self.lang, tmdb.year,
         )
         self._cache[key] = metadata
         return metadata
@@ -145,6 +146,7 @@ class MetadataClient:
             return MediaMetadata(
                 [t for t in titles if t], localized, original, data.get("original_language"), counts, anime,
                 [t for t in foreign if t], self.lang,
+                str(data.get("first_air_date") or data.get("release_date") or "")[:4] or None,
             )
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("No se pudieron obtener metadatos de TMDB: %s", exc)

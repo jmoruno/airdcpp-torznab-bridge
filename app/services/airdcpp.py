@@ -27,6 +27,8 @@ class AirDCError(RuntimeError):
 SEARCH_DEADLINE: contextvars.ContextVar[float | None] = contextvars.ContextVar("search_deadline", default=None)
 # Capitulos de la temporada 1 cuando la serie tiene varias (None: una sola o no se sabe)
 SEASON1_EPISODES: contextvars.ContextVar[int | None] = contextvars.ContextVar("season1_episodes", default=None)
+# Ano de estreno, para afinar una busqueda de temporada que llena el maximo de resultados
+SEARCH_YEAR: contextvars.ContextVar[str | None] = contextvars.ContextVar("search_year", default=None)
 
 
 @dataclass
@@ -120,6 +122,12 @@ class AirDCClient:
                 # directorios, que son los candidatos mas utiles para Sonarr.
                 directory_query = {**query_data, "file_type": "directory"}
                 raw = await self._collect_search_results(instance_id, directory_query)
+                year = SEARCH_YEAR.get()
+                if len(raw) >= self.settings.search_max_results and year and year not in query:
+                    # Titulo generico ("Monster"): los primeros resultados son de otras cosas y las
+                    # carpetas buenas no llegan. Con el ano ("Monster 2004") salen las de la serie.
+                    logger.info("Busqueda saturada (%d resultados): se repite como %r", len(raw), f"{query} {year}")
+                    raw = await self._search_directories(f"{query} {year}", query_data)
                 raw = await self._inspect_ambiguous_season_folders(raw, query, season)
                 converted = self._convert_results(raw, query, season, extensions)
                 if converted:
@@ -144,6 +152,20 @@ class AirDCClient:
                     )
                 except httpx.HTTPError:
                     logger.warning("No se pudo eliminar la búsqueda AirDC++ %s", instance_id)
+
+    async def _search_directories(self, pattern: str, query_data: dict[str, object]) -> list[dict]:
+        response = await self.http.post(f"{self.settings.airdcpp_url}/api/v1/search", json={}, headers=self.headers)
+        response.raise_for_status()
+        instance_id = response.json()["id"]
+        try:
+            return await self._collect_search_results(
+                instance_id, {**query_data, "pattern": pattern, "file_type": "directory"}
+            )
+        finally:
+            try:
+                await self.http.delete(f"{self.settings.airdcpp_url}/api/v1/search/{instance_id}", headers=self.headers)
+            except httpx.HTTPError:
+                logger.warning("No se pudo eliminar la búsqueda AirDC++ %s", instance_id)
 
     @staticmethod
     def _queue_seconds(response: httpx.Response) -> float:
