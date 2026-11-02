@@ -79,7 +79,8 @@ class Catalog:
         return any(value.tth == tth for value in self.files)
 
     def folders_of(self) -> set[str]:
-        return {f"{value.cid}:{normalize_text(value.folder)}" for value in self.files}
+        """Carpetas conocidas por usuario y nombre (la ruta de la lista y la del resultado no siempre coinciden)."""
+        return {f"{value.cid}:{normalize_text(value.folder.rstrip('/').rsplit('/', 1)[-1])}" for value in self.files}
 
     @property
     def complete(self) -> bool:

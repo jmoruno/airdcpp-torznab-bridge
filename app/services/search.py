@@ -220,7 +220,8 @@ class SearchService:
                     for result in results
                     if self._identity(result) not in catalog_ids
                     and not active_catalog.knows(result.tth)
-                    and f"{result.source_cid}:{normalize_text(result.source_path or '')}" not in known_folders
+                    and f"{result.source_cid}:{normalize_text((result.source_path or '').rstrip('/').rsplit('/', 1)[-1])}"
+                    not in known_folders
                 ]
                 self.catalog.verify(active_catalog, len(extra))
                 self.catalog.learn(active_catalog, extra)
