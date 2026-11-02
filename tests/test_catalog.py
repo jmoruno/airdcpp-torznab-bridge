@@ -190,3 +190,25 @@ async def test_season_one_marker_counts_as_absolute_and_catalog_knows_its_files(
     catalog = await service.build("tvdb:1", ["Hunter x Hunter"], "2011")
     assert [result.tth for result in service.results(catalog, None, None, (77,))] == ["A77"]
     assert catalog.knows("A77") and not catalog.knows("ZZZ")
+
+
+async def test_catalog_learns_folders_found_by_the_usual_search():
+    import asyncio
+
+    from app.models import SearchResult
+    from app.services.catalog import Catalog
+
+    root = "/Anime/Hunter × Hunter (2011) {tmdb-46298}/"
+    season = f"{root}Season 05/"
+    trees = {root: [video(season, f"Hunter x Hunter - S05E{n:02d}.mkv", "Z", f"Z{n}") for n in range(1, 4)]}
+    service = CatalogService(FakeAirDC([], trees), settings())
+    catalog = Catalog(key="k", titles=["Hunter x Hunter"], built_at=0)
+    found = SearchResult(
+        release_id="r", name="x", size=1, tth="Z2", source_cid="Z", source_hub_url="adcs://hub",
+        source_path=f"{season}Hunter x Hunter - S05E02.mkv",
+    )
+    service.learn(catalog, [found])
+    await asyncio.gather(*service.tasks.values())
+    assert sorted(value.tth for value in catalog.files) == ["Z1", "Z2", "Z3"]
+    service.learn(catalog, [found])
+    assert not service.tasks  # esa carpeta ya está aprendida

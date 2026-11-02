@@ -69,14 +69,14 @@ class Catalog:
     gaps: list[str] = field(default_factory=list)
     # Peticiones seguidas en las que la búsqueda normal no aportó nada que no tuviera el catálogo
     verified: int = 0
+    # Carpetas de serie ya recorridas (cid, ruta)
+    roots: set[tuple[str, str]] = field(default_factory=set)
 
     def knows(self, tth: str | None) -> bool:
         """Si el fichero está en el catálogo: entonces se sabe en qué carpeta está y qué capítulo es."""
         if not tth:
             return False
-        if not hasattr(self, "_tths"):
-            self._tths = {value.tth for value in self.files}
-        return tth in self._tths
+        return any(value.tth == tth for value in self.files)
 
     def folders_of(self) -> set[str]:
         return {f"{value.cid}:{normalize_text(value.folder)}" for value in self.files}
@@ -91,6 +91,8 @@ def title_aliases(titles: list[str]) -> list[list[str]]:
     aliases = [normalize_text(clean_search_pattern(title)) for title in titles]
     aliases += [normalize_text(root) for root in title_roots(titles)]
     aliases = [re.sub(r"\b(?:19|20)\d{2}\b", "", alias).strip() for alias in aliases]
+    # "Hunter × Hunter" se queda en "hunter hunter" al normalizar: vale igual que "hunter x hunter"
+    aliases += [" ".join(word for word in alias.split() if word != "x") for alias in aliases if " x " in alias]
     unique = list(dict.fromkeys(alias for alias in aliases if alias))
     return sorted((alias.split() for alias in unique), key=len, reverse=True)
 
@@ -154,6 +156,47 @@ class CatalogService:
         catalog.verified = 0 if new else catalog.verified + 1
         if self.trusted(catalog) and not before:
             logger.info("Catálogo de %r verificado: contesta solo a partir de ahora", catalog.titles[0])
+
+    def learn(self, catalog: Catalog, results: list[SearchResult]) -> None:
+        """Lo que trae la búsqueda normal y el catálogo no tenía: se recorre su carpeta de serie en segundo plano,
+        así los demás capítulos de esa carpeta ya estarán la próxima vez."""
+        aliases = title_aliases(catalog.titles)
+        for result in results:
+            if not result.source_cid or not result.source_hub_url or not result.source_path:
+                continue
+            path = result.source_path if result.item_type != "file" else result.source_path.rsplit("/", 1)[0] + "/"
+            item = {
+                "type": {"id": "directory"},
+                "path": path,
+                "name": path.rstrip("/").rsplit("/", 1)[-1],
+                "size": result.size,
+                "users": {"user": {"cid": result.source_cid, "hub_url": result.source_hub_url}},
+            }
+            root = self._series_root(item, aliases, catalog.titles)
+            if not root or root[0] in catalog.roots:
+                continue
+            catalog.roots.add(root[0])
+            folder_item = {**item, "path": root[0][1], "name": root[1]}
+            task = asyncio.create_task(self._learn_root(catalog, folder_item, root[1], aliases))
+            self.tasks[f"aprender:{root[0]}"] = task
+            task.add_done_callback(lambda _, name=f"aprender:{root[0]}": self.tasks.pop(name, None))
+
+    async def _learn_root(self, catalog: Catalog, item: dict, name: str, aliases: list[list[str]]) -> None:
+        try:
+            values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=200)
+        except Exception as exc:  # noqa: BLE001 - en segundo plano
+            logger.info("Catálogo: no se pudo recorrer %r: %s", name, exc)
+            return
+        known = {(value.cid, value.tth) for value in catalog.files}
+        added = []
+        for value in values:
+            entry = self._entry({**value, "_series_folder": name}, aliases)
+            if entry and (entry.cid, entry.tth) not in known:
+                known.add((entry.cid, entry.tth))
+                added.append(entry)
+        self._mark_numbering(added)
+        catalog.files.extend(added)
+        logger.info("Catálogo de %r: aprendida la carpeta %r (%d vídeos)", catalog.titles[0], name, len(added))
 
     def ensure(self, key: str | None, titles: list[str], year: str | None) -> None:
         """Arma el catálogo en segundo plano si no hay uno vigente ni se está armando ya."""
@@ -334,6 +377,8 @@ class CatalogService:
                 seen.add((entry.cid, entry.tth))
                 catalog.files.append(entry)
         self._mark_numbering(catalog.files)
+        catalog.roots = {(str(((item.get("users") or {}).get("user") or {}).get("cid") or ""), str(item.get("path")))
+                         for item, _ in candidates}
         catalog.folders = len(candidates)
         catalog.built_at = time.monotonic()
         self.catalogs[key] = catalog

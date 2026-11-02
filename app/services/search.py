@@ -223,6 +223,7 @@ class SearchService:
                     and f"{result.source_cid}:{normalize_text(result.source_path or '')}" not in known_folders
                 ]
                 self.catalog.verify(active_catalog, len(extra))
+                self.catalog.learn(active_catalog, extra)
                 logger.info(
                     "Búsqueda además del catálogo: %d nuevos (%d en castellano); verificado %d/%d%s",
                     len(extra),
