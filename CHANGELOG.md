@@ -9,6 +9,9 @@ Los cambios del proyecto original hasta la `2.0.0-beta.4` están en el [CHANGELO
 ### Añadido
 
 - Catálogo por serie: se busca la serie una vez, se abren sus carpetas y los capítulos siguientes se contestan desde ahí sin ir a AirDC++. El idioma de cada vídeo tiene en cuenta el de su carpeta. Para no perder nada, solo contesta solo cuando la búsqueda normal deja de aportar nada nuevo en `CATALOG_VERIFY_REQUESTS` peticiones seguidas; hasta entonces se busca también y se compara. Variables `CATALOG_*`.
+- El catálogo aprende: lo que trae la búsqueda normal y él no tenía, abre su carpeta en segundo plano y lo añade.
+- El catálogo afina la búsqueda normal: si conoce un fichero y sabe por su carpeta que no es el capítulo pedido (otra serie con el mismo título, otra numeración), lo quita. Lo que no conoce se queda.
+- Mientras no está verificado, la búsqueda normal se apoya en lo que ya trae el catálogo y suele bastarle una variante: en Hunter x Hunter cada capítulo pasa de 50-60 s a 12-18 s.
 - Sonarr (series tipo Anime) manda `q=95` junto con el id de la serie: ahora es el capítulo absoluto 95, no un título.
 - Con solo el id de TVDB también se sacan de TMDB el título en castellano, el año y si es anime.
 - Al armar el catálogo solo se buscan las variantes del título que pueden aportar algo: AirDC++ exige todas las palabras, así que una variante con las de otra y alguna más no encuentra nada nuevo.
