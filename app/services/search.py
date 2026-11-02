@@ -224,11 +224,12 @@ class SearchService:
                 ]
                 self.catalog.verify(active_catalog, len(extra))
                 logger.info(
-                    "Búsqueda además del catálogo: %d nuevos (%d en castellano); verificado %d/%d",
+                    "Búsqueda además del catálogo: %d nuevos (%d en castellano); verificado %d/%d%s",
                     len(extra),
                     sum("Spanish" in result.languages for result in extra),
                     active_catalog.verified,
                     self.settings.catalog_verify_requests,
+                    "".join(f" | {result.source_path or result.name}" for result in extra[:3]),
                 )
             if self.catalog and media_type == "tv" and not from_catalog:
                 # Lo pedido ya está contestado; el resto de la serie se prepara detrás
