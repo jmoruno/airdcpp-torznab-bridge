@@ -162,7 +162,7 @@ class CatalogService:
         así los demás capítulos de esa carpeta ya estarán la próxima vez."""
         aliases = title_aliases(catalog.titles)
         for result in results:
-            if not result.source_cid or not result.source_hub_url or not result.source_path:
+            if not result.source_cid or not result.source_hub_url or not result.source_path or catalog.knows(result.tth):
                 continue
             path = result.source_path if result.item_type != "file" else result.source_path.rsplit("/", 1)[0] + "/"
             item = {
@@ -173,17 +173,27 @@ class CatalogService:
                 "users": {"user": {"cid": result.source_cid, "hub_url": result.source_hub_url}},
             }
             root = self._series_root(item, aliases, catalog.titles)
-            if not root or root[0] in catalog.roots:
+            if not root:
                 continue
-            catalog.roots.add(root[0])
-            folder_item = {**item, "path": root[0][1], "name": root[1]}
-            task = asyncio.create_task(self._learn_root(catalog, folder_item, root[1], aliases))
+            if root[0] in catalog.roots:
+                # Su carpeta de serie ya se recorrió y aun así faltaba: se recorre la carpeta concreta
+                own = (result.source_cid, path)
+                if own in catalog.roots:
+                    continue
+                catalog.roots.add(own)
+                folder_item = {**item, "path": path}
+                name = root[1]
+            else:
+                catalog.roots.add(root[0])
+                folder_item = {**item, "path": root[0][1], "name": root[1]}
+                name = root[1]
+            task = asyncio.create_task(self._learn_root(catalog, folder_item, name, aliases))
             self.tasks[f"aprender:{root[0]}"] = task
             task.add_done_callback(lambda _, name=f"aprender:{root[0]}": self.tasks.pop(name, None))
 
     async def _learn_root(self, catalog: Catalog, item: dict, name: str, aliases: list[list[str]]) -> None:
         try:
-            values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=200)
+            values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=400)
         except Exception as exc:  # noqa: BLE001 - en segundo plano
             logger.info("Catálogo: no se pudo recorrer %r: %s", name, exc)
             return
@@ -449,7 +459,7 @@ class CatalogService:
 
         async def browse(item: dict, name: str) -> list[dict]:
             async with semaphore:
-                values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=200)
+                values = await self.airdcpp.browse_tree(item, max_depth=2, max_dirs=400)
                 return [{**value, "_series_folder": name} for value in values]
 
         tasks = [asyncio.create_task(browse(item, name)) for item, name in candidates]

@@ -515,6 +515,13 @@ class AirDCClient:
                                 pending.append((str(item["path"]), depth + 1))
                         else:
                             files.append({**item, "_folder": path, "users": folder.get("users")})
+                if pending:
+                    logger.info(
+                        "Recorrido parcial de %r: más de %d carpetas, quedan %d",
+                        folder.get("name"),
+                        max_dirs,
+                        len(pending),
+                    )
             except (AirDCError, httpx.HTTPError, KeyError, TypeError, ValueError) as exc:
                 logger.info("No se pudo recorrer la carpeta %r: %s", folder.get("name"), exc)
             finally:
