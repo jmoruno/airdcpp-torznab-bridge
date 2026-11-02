@@ -162,7 +162,7 @@ class CatalogService:
         así los demás capítulos de esa carpeta ya estarán la próxima vez."""
         aliases = title_aliases(catalog.titles)
         for result in results:
-            if not result.source_cid or not result.source_hub_url or not result.source_path or catalog.knows(result.tth):
+            if not (result.source_cid and result.source_hub_url and result.source_path) or catalog.knows(result.tth):
                 continue
             path = result.source_path if result.item_type != "file" else result.source_path.rsplit("/", 1)[0] + "/"
             item = {
