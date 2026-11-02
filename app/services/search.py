@@ -220,8 +220,7 @@ class SearchService:
                     for result in results
                     if self._identity(result) not in catalog_ids
                     and not active_catalog.knows(result.tth)
-                    and f"{result.source_cid}:{normalize_text((result.source_path or '').rstrip('/').rsplit('/', 1)[-1])}"
-                    not in known_folders
+                    and self._folder_key(result) not in known_folders
                 ]
                 self.catalog.verify(active_catalog, len(extra))
                 self.catalog.learn(active_catalog, extra)
@@ -246,6 +245,10 @@ class SearchService:
         if result.tth:
             return result.tth
         return f"{result.source_cid}:{normalize_text(result.source_path or result.name)}"
+
+    @staticmethod
+    def _folder_key(result: SearchResult) -> str:
+        return f"{result.source_cid}:{normalize_text((result.source_path or '').rstrip('/').rsplit('/', 1)[-1])}"
 
     @staticmethod
     def _catalog_key(tvdb_id: str | None, tmdb_id: str | None, imdb_id: str | None) -> str | None:
